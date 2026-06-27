@@ -2,7 +2,7 @@
   "name": "Focus Creature",
   "short_name": "Focus Creature",
   "description": "Raise a creature by staying focused. Train, heal, and adventure.",
-  "start_url": "./creature-focus-prototype.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

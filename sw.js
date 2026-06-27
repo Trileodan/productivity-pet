@@ -1,7 +1,7 @@
 /* Minimal offline cache so the app loads without a connection once installed. */
 const CACHE = 'focus-creature-v1';
 const ASSETS = [
-  './creature-focus-prototype.html',
+  './index.html',
   './manifest.webmanifest',
   './icon.svg'
 ];

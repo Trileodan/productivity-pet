@@ -124,6 +124,27 @@
   select{width:100%;background:#14203a;color:var(--ink);border:1px solid #2c3c5c;border-radius:9px;padding:7px;font-size:12px}
   .log{font-size:11px;color:var(--muted);max-height:120px;overflow:auto;margin-top:6px;line-height:1.6}
   .footer{color:var(--muted);font-size:11px;text-align:center;margin-top:16px;max-width:620px;line-height:1.6}
+  /* dashboard avatar + idle animations */
+  .homewrap{position:relative;width:128px;margin:8px auto 2px;cursor:pointer}
+  .idle{animation:idlebob 3.2s ease-in-out infinite}
+  @keyframes idlebob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  .fx{position:absolute;font-size:20px;pointer-events:none;opacity:0}
+  .fx-el{left:-8px;bottom:20px;animation:fxL 3s ease-in-out infinite}
+  .fx-cls{right:-8px;top:8px;animation:fxR 3.6s ease-in-out infinite .7s}
+  @keyframes fxL{0%{opacity:0;transform:translate(0,8px) scale(.6)}25%{opacity:1}60%{opacity:1;transform:translate(-6px,-16px) scale(1)}100%{opacity:0;transform:translate(-12px,-32px) scale(1)}}
+  @keyframes fxR{0%{opacity:0;transform:translate(0,6px) scale(.6)}25%{opacity:1}60%{opacity:1;transform:translate(8px,-14px) scale(1)}100%{opacity:0;transform:translate(14px,-30px) scale(1)}}
+  /* square move buttons */
+  .movebtns{display:flex;gap:6px;justify-content:center;margin:8px 0 4px}
+  .movebtn{flex:1;max-width:84px;background:#15243b;border:1px solid #2c3c5c;border-radius:12px;padding:8px 4px;cursor:pointer;text-align:center;color:var(--ink)}
+  .movebtn:active{transform:scale(.96)}
+  .movebtn .mi{font-size:23px;line-height:1}
+  .movebtn .mn{font-size:9.5px;margin-top:3px;line-height:1.05;font-weight:600}
+  .movebtn .mp{font-size:8.5px;color:var(--muted)}
+  .movebtn.up{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .movebtn.down{border-color:#5a3a44;opacity:.8}
+  /* polish */
+  .btn.primary,.btn.gold{box-shadow:0 4px 12px rgba(0,0,0,.25)}
+  .bar{height:11px}
   /* Phone / installed-app layout: fill the screen, drop the desktop chrome */
   @media (max-width:760px){
     body{padding:0;display:block}
@@ -162,20 +183,23 @@
 
         <!-- HOME -->
         <div class="view" id="v-home">
-          <div class="creature" id="homeArt" style="cursor:pointer;margin-top:6px" onclick="openStats()"></div>
-          <div class="name" id="homeName" style="cursor:pointer" onclick="openStats()">Sprout</div>
+          <div class="homewrap" onclick="openStats()">
+            <div class="creature idle" id="homeArt"></div>
+            <div class="fx fx-el" id="homeFxEl"></div>
+            <div class="fx fx-cls" id="homeFxCls"></div>
+          </div>
+          <div class="name" id="homeName" onclick="openStats()" style="cursor:pointer">Sprout</div>
           <div class="stagelbl" id="homeStage">Lv 1 · Hatchling</div>
-          <div class="center" style="font-size:9px;color:var(--muted);margin:2px 0 8px">tap the pet for talents, moves &amp; switch</div>
+          <div class="center" style="font-size:9px;color:var(--muted);margin:1px 0 7px">tap the pet for talents, moves &amp; switch ›</div>
           <div class="bar xp"><i id="homeXp"></i></div>
           <div class="barlbl"><span id="homeXpName">Lv 1 → 2</span><span id="homeXpL">0/150</span></div>
           <div class="bar hp"><i id="homeHp"></i></div>
           <div class="barlbl"><span>❤ Health</span><span id="homeHpL">100%</span></div>
-          <div class="lvlup" id="lvlBtn" style="display:none" onclick="openProgression()">⭐ Level up available — tap to spend points</div>
-          <div class="lvlup" id="moveBtn" style="display:none;border-color:var(--accent2);color:var(--accent2);background:linear-gradient(90deg,#16223e,#22305a)" onclick="openMoves()">✨ New move available — tap to learn</div>
-          <div style="margin-top:auto"></div>
-          <div class="stepper" id="durStep"><button onclick="cycleDur(-1)">‹</button><div class="stepval" onclick="cycleDur(1)"><small>Session length</small><b id="durVal">30 min</b></div><button onclick="cycleDur(1)">›</button></div>
+          <div class="lvlup" id="lvlBtn" style="display:none" onclick="event.stopPropagation();openProgression()">⭐ Level up — tap to spend points</div>
+          <div class="lvlup" id="moveBtn" style="display:none;border-color:var(--accent2);color:var(--accent2);background:linear-gradient(90deg,#16223e,#22305a)" onclick="event.stopPropagation();openMoves()">✨ New move — tap to learn</div>
+          <div class="stepper" id="durStep" style="margin-top:12px"><button onclick="cycleDur(-1)">‹</button><div class="stepval" onclick="cycleDur(1)"><small>Session length</small><b id="durVal">30 min</b></div><button onclick="cycleDur(1)">›</button></div>
           <div class="stepper" id="budStep"><button onclick="cycleBudget(-1)">‹</button><div class="stepval" onclick="cycleBudget(1)"><small>Phone allowance / 30 min</small><b id="budVal">Light · 2m</b></div><button onclick="cycleBudget(1)">›</button></div>
-          <div class="crow" style="margin-top:8px"><button class="btn primary" style="flex:1" onclick="startSession('train')">🎓 TRAINING</button><button class="btn" style="flex:1;background:#7aa2ff;color:#06203a" onclick="startSession('mind')">🧘 HEALING</button></div>
+          <div class="crow" style="margin-top:10px"><button class="btn primary" style="flex:1" onclick="startSession('train')">🎓 TRAINING</button><button class="btn" style="flex:1;background:linear-gradient(180deg,#8fb4ff,#6f97ee);color:#06203a" onclick="startSession('mind')">🧘 HEALING</button></div>
           <button class="btn gold" id="advBtn" onclick="openCampList()">⚔ Adventure · <span id="advTok">0</span> 🎟</button>
         </div>
 
@@ -274,6 +298,8 @@
         <div id="edGrid" class="edgrid"></div>
         <div style="font-size:10px;color:var(--muted);text-align:center">★ = start tile · click any tile to edit</div>
         <div id="edForm"></div>
+        <div class="row" style="gap:6px;margin-top:8px"><button class="btn primary sm" style="flex:2;margin:0" onclick="saveCampaigns()">💾 Save campaigns</button><button class="btn ghost sm" style="flex:1;margin:0" onclick="resetCampaigns()">Reset</button></div>
+        <div style="font-size:9.5px;color:var(--muted);margin-top:3px">Saves to this device so your maps persist between sessions.</div>
         <details style="margin-top:8px"><summary style="font-size:11px;color:var(--muted);cursor:pointer">Advanced: raw JSON</summary>
           <textarea class="adminbox" id="campJson" spellcheck="false"></textarea>
           <button class="btn ghost sm" onclick="applyCampaign()">Apply JSON</button>
@@ -305,12 +331,14 @@ const TALENTS=['STR','DEX','INT','WIS','CHA'];
 const TALENT_FULL={STR:'Strength',DEX:'Dexterity',INT:'Intelligence',WIS:'Wisdom',CHA:'Charisma'};
 const CLASSES=[['Wizard','Fire'],['Druid','Nature'],['Bard','Water'],['Thief','Dark'],['Paladin','Light']]; // class -> secondary element
 const CLASS_ELEMENT={Wizard:'Fire',Druid:'Nature',Bard:'Water',Thief:'Dark',Paladin:'Light'};
+const EL_EMOJI={Fire:'🔥',Nature:'🌱',Water:'💧',Dark:'🌑',Light:'✨',Neutral:'⚔️'};
+const CLASS_EMOJI={Wizard:'🔮',Druid:'🍃',Bard:'🎵',Thief:'🗡️',Paladin:'🛡️'};
 const SPECIES=[
-  {key:'sprout',name:'Sprout',final:'Mighty Oak',egg:'#7ddca0',desc:'Grows into a mighty Oak'},
-  {key:'ember', name:'Emberling',final:'Dragon',egg:'#ffb27a',desc:'Grows into a Dragon'},
-  {key:'pebble',name:'Pebble',final:'Water Stallion',egg:'#9ab8ff',desc:'Grows into a Water Stallion'},
-  {key:'umbra', name:'Umbra',final:'Spectre',egg:'#3b3b55',desc:'Grows into a Spectre'},
-  {key:'angel', name:'Angel',final:'Guardian Angel',egg:'#f2f3ff',desc:'Grows into a Guardian Angel'},
+  {key:'sprout',name:'Sprout',eggName:'Nature Egg',final:'Mighty Oak',egg:'#7ddca0',desc:'Grows into a mighty Oak'},
+  {key:'ember', name:'Emberling',eggName:'Fire Egg',final:'Dragon',egg:'#ffb27a',desc:'Grows into a Dragon'},
+  {key:'pebble',name:'Pebble',eggName:'Water Egg',final:'Water Stallion',egg:'#9ab8ff',desc:'Grows into a Water Stallion'},
+  {key:'umbra', name:'Umbra',eggName:'Shadow Egg',final:'Spectre',egg:'#3b3b55',desc:'Grows into a Spectre'},
+  {key:'angel', name:'Angel',eggName:'Radiant Egg',final:'Guardian Angel',egg:'#f2f3ff',desc:'Grows into a Guardian Angel'},
 ];
 const STAGE_LBL=['Hatchling','Juvenile','Adolescent','Adult','Elder','Ancient'];
 const STAGE_MIN=[1,4,10,19,31,50,100];
@@ -509,7 +537,7 @@ function renderPicker(){
     const lbl=!pr.alive?'fallen':(!pr.hatched?'egg':'Lv'+pr.level);
     const d=document.createElement('div');
     d.className='egg'+(i===pickSel?' sel':'');
-    d.innerHTML=`<div style="width:50px;height:50px">${img}</div><small>${egg?s.name:nameOf(s.key)}</small><span class="lv">${lbl}</span>`;
+    d.innerHTML=`<div style="width:50px;height:50px">${img}</div><small>${egg?s.eggName:nameOf(s.key)}</small><span class="lv">${lbl}</span>`;
     d.onclick=()=>{pickSel=i;renderPicker();renderPickPrev();};
     p.appendChild(d);
   });
@@ -518,8 +546,8 @@ function renderPicker(){
 function renderPickPrev(){
   const s=SPECIES[pickSel],pr=prog[s.key],st=stageForLevel(pr.level),egg=(!pr.hatched||!pr.alive);
   document.getElementById('pickPrev').innerHTML=egg?eggSVG(s):art(s.key,st,pr.health,pr.cls);
-  document.getElementById('pickName').textContent=egg?s.name:nameOf(s.key);
-  document.getElementById('pickDesc').textContent=egg?(s.desc+(!pr.alive?' (fallen — re-hatches at Lv 1)':'')):(`${s.name} · Lv ${pr.level} · ${st>=6?('✦ '+s.final):STAGE_LBL[st]} · ${ELEMENT[s.key]}`);
+  document.getElementById('pickName').textContent=egg?s.eggName:nameOf(s.key);
+  document.getElementById('pickDesc').textContent=egg?(!pr.alive?'Fallen — re-hatches at Level 1':''):(`${s.name} · Lv ${pr.level} · ${st>=6?('✦ '+s.final):STAGE_LBL[st]} · ${ELEMENT[s.key]}`);
 }
 function beginWith(){
   const s=SPECIES[pickSel];
@@ -529,7 +557,7 @@ function beginWith(){
     log(`Switched to ${nameOf(s.key)} the ${s.name}.`);return;
   }
   prog[s.key]=newProg();pendingHatch=s.key;
-  showModal(`<h3>Name your ${s.name}</h3><p style="text-align:center;color:var(--muted);font-size:11px;margin:-4px 0 8px">${ELEMENT[s.key]} · ${s.desc}</p><input id="nameInput" maxlength="14" placeholder="${s.name}" value="${s.name}" style="width:100%;padding:10px;border-radius:10px;border:1px solid #2c3c5c;background:#0d1626;color:var(--ink);font-size:15px;text-align:center"/><button class="btn primary" style="margin-top:10px" onclick="confirmName()">Hatch &amp; Begin</button>`);
+  showModal(`<h3>Hatch your ${s.eggName}</h3><p style="text-align:center;color:var(--muted);font-size:11px;margin:-4px 0 8px">${ELEMENT[s.key]} · name your new companion</p><input id="nameInput" maxlength="14" placeholder="${s.name}" value="${s.name}" style="width:100%;padding:10px;border-radius:10px;border:1px solid #2c3c5c;background:#0d1626;color:var(--ink);font-size:15px;text-align:center"/><button class="btn primary" style="margin-top:10px" onclick="confirmName()">Hatch &amp; Begin</button>`);
   setTimeout(()=>{const el=document.getElementById('nameInput');if(el){el.focus();el.select();el.addEventListener('keydown',e=>{if(e.key==='Enter')confirmName();});}},60);
 }
 function confirmName(){
@@ -564,6 +592,8 @@ function updateAll(){
   document.getElementById('lvlBtn').style.display=p.pending>0?'block':'none';
   document.getElementById('moveBtn').style.display=pendingMoves(active,p).length>0?'block':'none';
   document.getElementById('advTok').textContent=tokens;
+  document.getElementById('homeFxEl').textContent=EL_EMOJI[ELEMENT[active]]||'';   // element idle animation
+  document.getElementById('homeFxCls').textContent=p.cls?(CLASS_EMOJI[p.cls]||''):''; // class idle animation
 }
 function openStats(){
   if(!active)return;const p=prog[active],s=spec(active);
@@ -591,7 +621,7 @@ function startSession(type){
   go('focus');renderSession();
   document.getElementById('focusHint').textContent=(budget===0?'Strict: any phone time drains health. ':`Up to ${fmt(budget)} phone time before health drains. `)+'Timer pauses while on the phone.';
   log(`${sessionType==='mind'?'🧘 Mindfulness':'🎓 Training'} session started · ${sessionMins} min · allowance ${fmt(budget)}.`);
-  clearInterval(sTimer);sTimer=setInterval(tick,120);
+  clearInterval(sTimer);sTimer=setInterval(tick,1000); // real time: 1s = 1s
 }
 function setPhone(up,silent){
   phoneUp=up;
@@ -720,7 +750,7 @@ function passMove(id){const p=prog[active];p.mvProc[id]=true;log('Passed on a ne
 /* ===== ADVENTURE (campaign library + maze) ===== */
 function campById(id){return CAMPAIGNS.find(c=>c.id===id);}
 function completedCount(id){return Object.keys(completions[id]||{}).length;}
-function newRun(c){const r={campId:c.id,pos:{x:c.start.x,y:c.start.y},prev:{x:c.start.x,y:c.start.y},seen:{},cleared:{},inv:[],done:false,msg:'',fight:null};r.seen[key(r.pos.x,r.pos.y)]=true;return r;}
+function newRun(c){const r={campId:c.id,pos:{x:c.start.x,y:c.start.y},prev:{x:c.start.x,y:c.start.y},seen:{},cleared:{},inv:[],defeated:[],done:false,msg:'',fight:null};r.seen[key(r.pos.x,r.pos.y)]=true;return r;}
 function openCampList(){
   if(!active){toast('Pick a creature first.');return;}
   renderCampList();go('camplist');
@@ -747,10 +777,23 @@ function playCampaign(id){
   go('adv');renderCamp();showEncounter(key(run.pos.x,run.pos.y));
 }
 function restartCampaign(){if(!camp)return;run=newRun(camp);prog[active].run=run;renderCamp();showEncounter(key(run.pos.x,run.pos.y));log('Campaign restarted.');}
+function reqMet(req){
+  if(!req||!req.kind)return true;
+  if(req.kind==='item')return run.inv.includes(req.value);
+  if(req.kind==='defeat')return (run.defeated||[]).includes(req.value);
+  return true;
+}
 function move(dx,dy){
   if(!run||run.done)return;
+  const here=camp.squares[key(run.pos.x,run.pos.y)];
+  if(here&&!run.cleared[key(run.pos.x,run.pos.y)]){
+    if(here.type==='fight'){toast('Defeat the '+here.enemy.name+' or run first.');return;}
+    if(here.type==='choice'){toast('Make your choice first.');return;}
+  }
   const nx=run.pos.x+dx, ny=run.pos.y+dy, k=key(nx,ny);
   if(nx<0||ny<0||nx>=camp.cols||ny>=camp.rows||!camp.squares[k]){toast('A wall blocks the way.');return;}
+  const tgt=camp.squares[k];
+  if(tgt.req&&!reqMet(tgt.req)){toast(tgt.req.msg||'You cannot enter here yet.');return;}
   if(tokens<1){toast('No movement tokens — focus to earn more.');return;}
   tokens--;run.prev={x:run.pos.x,y:run.pos.y};run.pos={x:nx,y:ny};run.seen[k]=true;run.msg='';
   renderCamp();showEncounter(k);
@@ -804,13 +847,15 @@ function fightPanel(k){
   let h=`<div class="cfoe">⚔ ${e.name} · ${enemyEls(e).join('+')} &nbsp; ${muTag}</div>`;
   h+=`<div class="bar hp" style="margin-top:4px"><i style="width:${Math.max(0,e.hp/e.max*100)}%"></i></div><div class="barlbl"><span>Enemy HP</span><span>${Math.max(0,Math.round(e.hp))}/${e.max}</span></div>`;
   const mvs=p.moves.length?p.moves:[STRUGGLE];
-  mvs.forEach((m,i)=>{const pw=Math.round(movePower(p,m)*mu);h+=`<button class="btn ghost sm" onclick="useMove(${p.moves.length?i:-1})">${m.name} <span style="color:var(--muted);font-size:10px">(${m.talent} ${m.base}×${p.tal[m.talent]} → ~${pw})</span></button>`;});
-  h+=`<button class="btn danger" onclick="campFlee('${k}')">Run away</button>`;
+  h+=`<div class="movebtns">`;
+  mvs.forEach((m,i)=>{const pw=Math.round(movePower(p,m)*mu);const cls=mu>1.05?' up':mu<0.95?' down':'';h+=`<div class="movebtn${cls}" onclick="useMove(${p.moves.length?i:-1})"><div class="mi">${EL_EMOJI[m.el]||'⚔️'}</div><div class="mn">${m.name}</div><div class="mp">~${pw} dmg</div></div>`;});
+  h+=`</div>`;
+  h+=`<button class="btn danger" onclick="campFlee('${k}')">🏃 Run away (−25% HP)</button>`;
   if(run.msg)h+=`<div class="cmsg">${run.msg}</div>`;
   return h;
 }
 function startFight(k){const e=camp.squares[k].enemy;run.fight={k:k,enemy:{name:e.name,element:e.element,element2:e.element2,atk:e.atk,reward:e.reward,hp:e.hp,max:e.hp}};run.msg='';renderCamp();showEncounter(k);}
-function campFlee(k){run.fight=null;run.pos={x:run.prev.x,y:run.prev.y};run.msg='You retreat to safety.';renderCamp();showEncounter(key(run.pos.x,run.pos.y));}
+function campFlee(k){const p=prog[active];const dmg=25;p.health=Math.max(0,p.health-dmg);run.fight=null;log('🏃 Fled the fight — lost '+dmg+' HP.');if(p.health<=0){run.msg='';campFail();return;}run.msg=`You fled and took ${dmg} damage.`;run.pos={x:run.prev.x,y:run.prev.y};renderCamp();showEncounter(key(run.pos.x,run.pos.y));}
 function useMove(mi){
   const f=run.fight;if(!f)return;const p=prog[active],e=f.enemy;
   const mv=mi<0?STRUGGLE:p.moves[mi];
@@ -818,7 +863,7 @@ function useMove(mi){
   let dmg=Math.max(1,Math.round(movePower(p,mv)*mu*(0.85+Math.random()*0.3)));
   e.hp-=dmg;
   let msg=`You used ${mv.name}! ${mu>1.05?'Super effective! ':mu<0.95?'Not very effective. ':''}−${dmg} enemy HP.`;
-  if(e.hp<=0){run.cleared[f.k]=true;const xp=e.reward+p.tal.CHA*5;addXp(active,xp);run.fight=null;run.msg=`🏆 Defeated ${e.name}! +${xp} XP.`;log(`⚔ Defeated ${e.name} (+${xp} XP).`);renderCamp();showEncounter(f.k);return;}
+  if(e.hp<=0){run.cleared[f.k]=true;if(!run.defeated.includes(e.name))run.defeated.push(e.name);const xp=e.reward+p.tal.CHA*5;addXp(active,xp);run.fight=null;run.msg=`🏆 Defeated ${e.name}! +${xp} XP.`;log(`⚔ Defeated ${e.name} (+${xp} XP).`);renderCamp();showEncounter(f.k);return;}
   const em=matchupMod(enemyEls(e),petEls(active,p));
   let edmg=Math.max(1,Math.round((e.atk||4)*em*(0.85+Math.random()*0.3)));
   p.health=Math.max(0,p.health-edmg);
@@ -906,10 +951,15 @@ function edRenderForm(){
     if(sq.type==='exit')h+=`<label>Reward XP</label><input type="number" value="${sq.reward||0}" oninput="edSetNum('reward',this.value)">`;
     if(sq.type==='fight'){const e=sq.enemy||{};h+=`<label>Enemy name</label><input value="${esc(e.name)}" oninput="edEnemy('name',this.value)"><div class="two"><div><label>Element</label><select onchange="edEnemy('element',this.value)">${ELS.map(x=>`<option ${e.element===x?'selected':''}>${x}</option>`).join('')}</select></div><div><label>2nd element</label><select onchange="edEnemy('element2',this.value)"><option value="">none</option>${ELS.map(x=>`<option ${e.element2===x?'selected':''}>${x}</option>`).join('')}</select></div></div><div class="two"><div><label>HP</label><input type="number" value="${e.hp||20}" oninput="edEnemyNum('hp',this.value)"></div><div><label>ATK</label><input type="number" value="${e.atk||5}" oninput="edEnemyNum('atk',this.value)"></div><div><label>Reward</label><input type="number" value="${e.reward||60}" oninput="edEnemyNum('reward',this.value)"></div></div>`;}
     if(sq.type==='choice'){const o=sq.options||[{},{}];h+=`<label>Prompt</label><input value="${esc(sq.prompt)}" oninput="edSet('prompt',this.value)">`;[0,1].forEach(i=>{const op=o[i]||{};h+=`<div style="border-top:1px solid #25304a;margin-top:6px;padding-top:2px"><label>Option ${i+1} label</label><input value="${esc(op.label)}" oninput="edOpt(${i},'label',this.value)"><div class="two"><div><label>XP</label><input type="number" value="${op.xp||0}" oninput="edOptNum(${i},'xp',this.value)"></div><div><label>Dmg</label><input type="number" value="${op.dmg||0}" oninput="edOptNum(${i},'dmg',this.value)"></div><div><label>Heal</label><input type="number" value="${op.heal||0}" oninput="edOptNum(${i},'heal',this.value)"></div></div><label>Result text</label><input value="${esc(op.text)}" oninput="edOpt(${i},'text',this.value)"></div>`;});}
+    const rq=sq.req||{};
+    h+=`<div style="border-top:1px solid #25304a;margin-top:8px;padding-top:2px"><label>Requirement to enter this tile</label><select onchange="edReq('kind',this.value)"><option value="" ${!rq.kind?'selected':''}>None (always open)</option><option value="item" ${rq.kind==='item'?'selected':''}>Must hold an item</option><option value="defeat" ${rq.kind==='defeat'?'selected':''}>Must have defeated a creature</option></select>`;
+    if(rq.kind){h+=`<label>${rq.kind==='item'?'Required item name':'Creature name to have defeated'}</label><input value="${esc(rq.value)}" oninput="edReq('value',this.value)"><label>Message shown if blocked</label><input value="${esc(rq.msg)}" oninput="edReq('msg',this.value)">`;}
+    h+=`</div>`;
     h+=`<button class="btn danger" style="margin-top:8px" onclick="edSetType('')">🗑 Clear tile</button>`;
   }
   f.innerHTML=h;
 }
+function edReq(k,v){const sq=curSq();if(!sq)return;if(k==='kind'){if(!v){delete sq.req;}else{sq.req=sq.req||{};sq.req.kind=v;if(sq.req.value==null)sq.req.value='';if(sq.req.msg==null)sq.req.msg='';}edRenderForm();}else{sq.req=sq.req||{};sq.req[k]=v;}edSyncJson();}
 function edSet(k,v){const sq=curSq();if(sq){sq[k]=v;edSyncJson();}}
 function edSetNum(k,v){const sq=curSq();if(sq){sq[k]=+v||0;edSyncJson();}}
 function edEnemy(k,v){const sq=curSq();if(!sq)return;sq.enemy=sq.enemy||{};if(v==='')delete sq.enemy[k];else sq.enemy[k]=v;edSyncJson();}
@@ -919,6 +969,10 @@ function edOptNum(i,k,v){const sq=curSq();if(!sq)return;sq.options=sq.options||[
 function edSetType(t){const c=curEdCamp();if(!t){delete c.squares[edSel];}else{const cur=c.squares[edSel]||{};const sq={type:t,desc:cur.desc||''};if(t==='talk')sq.text=cur.text||'';if(t==='fight')sq.enemy=cur.enemy||{name:'Foe',element:'Fire',hp:20,atk:5,reward:60};if(t==='item'){sq.item=cur.item||'Treasure';sq.xp=cur.xp||20;sq.heal=cur.heal||0;}if(t==='choice'){sq.prompt=cur.prompt||'';sq.options=cur.options||[{label:'Option A',xp:30,text:'…'},{label:'Option B',dmg:10,text:'…'}];}if(t==='exit')sq.reward=cur.reward||200;c.squares[edSel]=sq;}edRenderGrid();edRenderForm();edSyncJson();renderListIfOpen();}
 function edSetStart(){const co=edSel.split(',').map(Number);const c=curEdCamp();c.start={x:co[0],y:co[1]};if(!c.squares[edSel])c.squares[edSel]={type:'move',desc:'The journey begins…'};edRenderGrid();edRenderForm();edSyncJson();}
 function edSyncJson(){const t=document.getElementById('campJson');if(t)t.value=JSON.stringify(CAMPAIGNS,null,1);}
+const LS_KEY='fc_campaigns_v1';
+function saveCampaigns(){try{localStorage.setItem(LS_KEY,JSON.stringify(CAMPAIGNS));toast('Campaigns saved ✔');log('💾 Saved '+CAMPAIGNS.length+' campaign(s) to this device.');}catch(e){toast('Save failed: '+e.message);}}
+function loadCampaigns(){try{const s=localStorage.getItem(LS_KEY);if(s){const o=JSON.parse(s);if(Array.isArray(o)&&o.length&&o[0].squares){CAMPAIGNS.length=0;o.forEach(c=>CAMPAIGNS.push(c));}}}catch(e){}}
+function resetCampaigns(){try{localStorage.removeItem(LS_KEY);}catch(e){}toast('Saved maps cleared — reload to restore defaults.');log('Saved campaigns reset.');}
 function renderListIfOpen(){if(document.getElementById('v-camplist').classList.contains('active'))renderCampList();}
 
 /* ===== CUSTOM ARTWORK UPLOAD ===== */
@@ -944,7 +998,7 @@ function devHurt(){if(!active)return;const p=prog[active];p.health=Math.max(0,p.
 /* ===== INIT ===== */
 renderPicker();renderDurBox();renderBudgetBox();renderJump();renderClsSel();renderGallery();
 attachSwipe('durStep',cycleDur);attachSwipe('budStep',cycleBudget);
-renderArtRows();edInit();
+loadCampaigns();renderArtRows();edInit();
 // Self-heal: remove any previously-registered service worker + caches (they were causing stale/blank loads).
 if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});}
 if(window.caches){caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});}

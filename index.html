@@ -326,6 +326,15 @@
         </details>
       </div>
       <div class="card">
+        <h3>⚔ Move &amp; ability editor <span style="font-weight:400;color:var(--muted);font-size:11px">— backend / admin only</span></h3>
+        <p style="color:var(--muted);font-size:11px;margin:0 0 6px">Tune any element or class moveset for balancing — name, power, trait, element, cooldown and condition. Saved to this device.</p>
+        <select id="mvEdSel" onchange="mvEdRender()"></select>
+        <div id="mvEdList"></div>
+        <button class="btn ghost sm" style="margin-top:6px" onclick="mvEdAdd()">+ Add move</button>
+        <div class="row" style="gap:6px;margin-top:6px"><button class="btn primary sm" style="flex:2;margin:0" onclick="saveMoves()">💾 Save moves</button><button class="btn ghost sm" style="flex:1;margin:0" onclick="resetMoves()">Reset</button></div>
+        <div style="font-size:9.5px;color:var(--muted);margin-top:3px">Edits apply to newly-learned moves &amp; the spellbook immediately; already-equipped copies update when re-learned.</div>
+      </div>
+      <div class="card">
         <h3>🎨 Pet artwork <span style="font-weight:400;color:var(--muted);font-size:11px">— upload to replace</span></h3>
         <p style="color:var(--muted);font-size:11px;margin:0 0 4px">Drop in an artist's PNG to replace a pet's sprite everywhere (demo: one image per species; a real build would take a sprite-sheet per evolution stage).</p>
         <div id="artRows"></div>
@@ -502,6 +511,28 @@ function moveCatalog(sk,p){const out=[];(ELEMENT_MOVES[ELEMENT[sk]]||[]).forEach
 function pendingMoves(sk,p){return moveCatalog(sk,p).filter(m=>m.lvl<=p.level&&!p.mvProc[m.id]);}
 function movePower(p,m){return (m.power||0)*(p.tal[m.trait]||1);}
 function tv(str,p){let t=0,re=/\((\d+)\s*\*\s*(STR|DEX|INT|WIS|CHA)\)/g,m;while(m=re.exec(str)){t+=parseInt(m[1])*(p.tal[m[2]]||1);}return t;}
+/* ----- editable move tables (admin) ----- */
+const MOVE_DEFAULTS=JSON.parse(JSON.stringify({E:ELEMENT_MOVES,C:CLASS_MOVES}));
+const MV_ELS=['None','Fire','Nature','Water','Shadow','Light'];
+const LS_MOVES='fc_moves_v1';
+function applyMoveData(o){if(o&&o.E){for(const k in ELEMENT_MOVES)delete ELEMENT_MOVES[k];for(const k in o.E)ELEMENT_MOVES[k]=o.E[k];}if(o&&o.C){for(const k in CLASS_MOVES)delete CLASS_MOVES[k];for(const k in o.C)CLASS_MOVES[k]=o.C[k];}}
+function saveMoves(){try{localStorage.setItem(LS_MOVES,JSON.stringify({E:ELEMENT_MOVES,C:CLASS_MOVES}));toast('Moves saved ✔');log('💾 Saved move tables to this device.');}catch(e){toast('Save failed: '+e.message);}}
+function loadMoves(){try{const s=localStorage.getItem(LS_MOVES);if(s)applyMoveData(JSON.parse(s));}catch(e){}}
+function resetMoves(){applyMoveData(JSON.parse(JSON.stringify(MOVE_DEFAULTS)));try{localStorage.removeItem(LS_MOVES);}catch(e){}toast('Moves reset to defaults.');mvEdRender();}
+function mvEdInit(){const sel=document.getElementById('mvEdSel');if(!sel)return;let o='';['Nature','Fire','Water','Shadow','Light'].forEach(k=>o+=`<option value="E|${k}">${k} (element)</option>`);CLASSES.forEach(c=>o+=`<option value="C|${c}">${c} (class)</option>`);sel.innerHTML=o;mvEdRender();}
+function mvEdGroup(){const sel=document.getElementById('mvEdSel');if(!sel||!sel.value)return null;const v=sel.value.split('|');return v[0]==='E'?ELEMENT_MOVES[v[1]]:CLASS_MOVES[v[1]];}
+function mvEdRender(){
+  const box=document.getElementById('mvEdList'),arr=mvEdGroup();if(!box)return;if(!arr){box.innerHTML='';return;}
+  box.innerHTML=arr.map((a,i)=>`<div class="edform" style="margin-top:6px">
+    <div class="two"><div><label>Level</label><input type="number" value="${a[0]}" oninput="mvEdSet(${i},0,this.value,1)"></div><div style="flex:2"><label>Name</label><input value="${esc(a[1])}" oninput="mvEdSet(${i},1,this.value)"></div></div>
+    <div class="two"><div><label>Trait</label><select onchange="mvEdSet(${i},2,this.value)">${TALENTS.map(t=>`<option ${a[2]===t?'selected':''}>${t}</option>`).join('')}</select></div><div><label>Power</label><input type="number" value="${a[3]}" oninput="mvEdSet(${i},3,this.value,1)"></div></div>
+    <div class="two"><div><label>Element</label><select onchange="mvEdSet(${i},4,this.value)">${MV_ELS.map(x=>`<option ${a[4]===x?'selected':''}>${x}</option>`).join('')}</select></div><div><label>Cooldown</label><input type="number" value="${a[5]}" oninput="mvEdSet(${i},5,this.value,1)"></div></div>
+    <label>Condition / status effect</label><textarea rows="2" oninput="mvEdSet(${i},6,this.value)">${esc(a[6])}</textarea>
+    <button class="btn danger" style="margin-top:6px" onclick="mvEdDel(${i})">🗑 Delete move</button></div>`).join('');
+}
+function mvEdSet(i,fi,val,num){const a=mvEdGroup();if(!a||!a[i])return;a[i][fi]=num?(parseInt(val)||0):val;}
+function mvEdAdd(){const a=mvEdGroup();if(!a)return;a.push([1,"New Move","STR",1,"None",0,"None"]);mvEdRender();}
+function mvEdDel(i){const a=mvEdGroup();if(!a)return;a.splice(i,1);mvEdRender();}
 
 /* Backend-authored campaigns (admin only). Each needs a unique id. */
 const CAMPAIGNS=[
@@ -1241,7 +1272,7 @@ function devHurt(){if(!active)return;const p=prog[active];p.health=Math.max(0,p.
 /* ===== INIT ===== */
 renderPicker();renderDurBox();renderBudgetBox();renderJump();renderClsSel();renderGallery();
 attachSwipe('durStep',cycleDur);attachSwipe('budStep',cycleBudget);
-loadCampaigns();loadHistory();renderArtRows();edInit();renderPickPrev();
+loadMoves();loadCampaigns();loadHistory();renderArtRows();edInit();mvEdInit();renderPickPrev();
 document.addEventListener('visibilitychange',onVisibility);
 // Self-heal: remove any previously-registered service worker + caches (they were causing stale/blank loads).
 if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});}

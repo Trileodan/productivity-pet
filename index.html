@@ -76,6 +76,7 @@
   .stepval b{font-size:14px;color:var(--ink)}
   .modal{position:absolute;inset:0;background:rgba(5,8,15,.82);display:none;flex-direction:column;justify-content:center;padding:22px;z-index:25}
   .modal.show{display:flex}
+  .modal.top{justify-content:flex-start;padding-top:7%}
   .mcard{background:var(--panel);border:1px solid #2c3c5c;border-radius:18px;padding:18px}
   .mcard h3{margin:0 0 10px;text-align:center;font-size:16px}
   .opts{display:grid;grid-template-columns:1fr 1fr;gap:7px}
@@ -191,7 +192,8 @@
           <div class="creature" id="pickPrev" style="margin:2px auto 0"></div>
           <div class="name" id="pickName">Nature Egg</div>
           <div class="stagelbl" id="pickDesc"></div>
-          <button class="btn primary" style="margin-top:6px" onclick="beginWith()">Hatch &amp; Begin</button>
+          <div class="center" id="pickStats" style="font-size:10.5px;color:var(--muted);margin-top:2px"></div>
+          <button class="btn primary" id="pickBtn" style="margin-top:6px" onclick="beginWith()">Hatch &amp; Begin</button>
           <div id="pickHistory"></div>
         </div>
 
@@ -347,10 +349,9 @@
 /* ===== DATA ===== */
 const TALENTS=['STR','DEX','INT','WIS','CHA'];
 const TALENT_FULL={STR:'Strength',DEX:'Dexterity',INT:'Intelligence',WIS:'Wisdom',CHA:'Charisma'};
-const CLASSES=[['Wizard','Fire'],['Druid','Nature'],['Bard','Water'],['Thief','Dark'],['Paladin','Light']]; // class -> secondary element
-const CLASS_ELEMENT={Wizard:'Fire',Druid:'Nature',Bard:'Water',Thief:'Dark',Paladin:'Light'};
-const EL_EMOJI={Fire:'🔥',Nature:'🌱',Water:'💧',Dark:'🌑',Light:'✨',Neutral:'⚔️'};
-const EL_COLOR={Fire:'#ff8a3a',Nature:'#5fd38a',Water:'#7aa2ff',Dark:'#b69cff',Light:'#ffd166',Neutral:'#eef2f9'};
+const CLASSES=['Thief','Wizard','Paladin','Bard','Druid']; // classes no longer carry an element
+const EL_EMOJI={Fire:'🔥',Nature:'🌱',Water:'💧',Shadow:'🌑',Light:'✨',None:'⚔️',Neutral:'⚔️'};
+const EL_COLOR={Fire:'#ff8a3a',Nature:'#5fd38a',Water:'#7aa2ff',Shadow:'#b69cff',Light:'#ffd166',None:'#cdd6e6',Neutral:'#cdd6e6'};
 const CLASS_EMOJI={Wizard:'🔮',Druid:'🍃',Bard:'🎵',Thief:'🗡️',Paladin:'🛡️'};
 const SPECIES=[
   {key:'sprout',name:'Sprout',eggName:'Nature Egg',final:'Mighty Oak',egg:'#7ddca0',desc:'Grows into a mighty Oak'},
@@ -360,44 +361,147 @@ const SPECIES=[
   {key:'angel', name:'Angel',eggName:'Radiant Egg',final:'Guardian Angel',egg:'#f2f3ff',desc:'Grows into a Guardian Angel'},
 ];
 const STAGE_LBL=['Hatchling','Juvenile','Adolescent','Adult','Elder','Ancient'];
-const STAGE_MIN=[1,4,10,19,31,50,100];
+const STAGE_MIN=[1,5,15,25,35,50]; // stages 0..5 by level; stage 6 (Ultimate) = complete all campaigns with this pet
+const MAX_LEVEL=50;
 const BASE_NEED=150, NEED_GROWTH=1.5, DRAIN_PER_SEC=10, TOKEN_SECS=300;
 const BUDGETS=[['Strict','0m',0],['Light','2m',120],['Relaxed','5m',300],['Chill','10m',600]];
 const DURATIONS=[5,15,30,45,60];
 const ICON={move:'·',fight:'⚔',item:'◆',choice:'❓',talk:'💬',exit:'🚪'};
-/* Elements & matchups. Species = primary element; class = secondary element. */
-const ELEMENT={sprout:'Nature',ember:'Fire',pebble:'Water',umbra:'Dark',angel:'Light'};
-const BEATS={Fire:'Nature',Nature:'Water',Water:'Fire',Light:'Dark',Dark:'Light'};
-// One element vs one element: advantage +50%, disadvantage -25%, else 0.
-function elemDelta(a,d){if(BEATS[a]===d)return 50;if(BEATS[d]===a)return -25;return 0;}
-// Combined multiplier: sum the delta over every attacker-element x defender-element pair.
-function matchupMod(atkEls,defEls){let s=0;atkEls.forEach(a=>defEls.forEach(d=>{s+=elemDelta(a,d);}));return Math.max(0.25,1+s/100);}
-function petEls(sk,p){const a=[ELEMENT[sk]];if(p.cls&&CLASS_ELEMENT[p.cls])a.push(CLASS_ELEMENT[p.cls]);return a;}
-function enemyEls(e){const a=[e.element];if(e.element2)a.push(e.element2);return a;}
-// Moves: [name, basePower, talent]. Damage = basePower x points in that talent (talents start at 1).
-const STRUGGLE={name:'Struggle',base:1,talent:'STR'};
+/* Pets are ALWAYS single-element (their species). Each MOVE has its own element, used for damage matchups. */
+const ELEMENT={sprout:'Nature',ember:'Fire',pebble:'Water',umbra:'Shadow',angel:'Light'};
+const BEATS={Fire:'Nature',Nature:'Water',Water:'Fire',Light:'Shadow',Shadow:'Light'};
+// Single-element matchup: advantage x1.5, disadvantage x0.75, otherwise x1.
+function matchup1(a,d){if(!a||a==='None'||a==='Neutral'||!d||d==='None'||d==='Neutral')return 1;if(BEATS[a]===d)return 1.5;if(BEATS[d]===a)return 0.75;return 1;}
+// Tackle: always-available 4th move.
+const TACKLE={name:'Tackle',trait:'STR',power:1,el:'None',cd:0,status:'None',src:'Basic'};
+/* Move tables — each row: [level, name, trait, power, element, cooldown, status] */
 const ELEMENT_MOVES={
-  Nature:[['Tackle',1,'STR'],['Thorns',2,'DEX'],['Seed Toss',2,'INT'],['Vine Whip',3,'STR'],['Leaf Storm',4,'INT'],['Solar Bloom',5,'WIS']],
-  Fire:[['Ember',1,'INT'],['Flame Lick',2,'DEX'],['Fire Fang',2,'STR'],['Flare',3,'INT'],['Inferno',4,'INT'],['Meteor',5,'STR']],
-  Water:[['Bubble',1,'INT'],['Water Gun',2,'INT'],['Aqua Jet',2,'DEX'],['Torrent',3,'INT'],['Tidal Crash',4,'STR'],['Maelstrom',5,'WIS']],
-  Dark:[['Shadow Sneak',1,'DEX'],['Bite',2,'STR'],['Shadow Claw',2,'DEX'],['Night Shade',3,'INT'],['Dark Pulse',4,'INT'],['Void Rip',5,'STR']],
-  Light:[['Glimmer',1,'CHA'],['Holy Touch',2,'WIS'],['Light Beam',2,'INT'],['Smite',3,'STR'],['Radiance',4,'CHA'],['Judgment',5,'WIS']]
+  Nature:[
+    [3,"Thorn Dart","DEX",2,"Nature",1,"None"],[5,"Twig Strike","STR",2,"Nature",0,"None"],
+    [8,"Creeping Vines","WIS",1,"Nature",2,"Foe's next attack does 25% less damage"],
+    [13,"Pollen Paralysis","CHA",1,"Nature",2,"Foe doesn't attack next turn"],
+    [17,"Spring Bloom","WIS",0,"Nature",2,"Heal pet character for (2*WIS)"],
+    [22,"Verdant Fury","STR",3,"Nature",1,"None"],
+    [27,"Fairy Pollen","INT",1,"Nature",3,"Foe doesn't attack for 2 turns"],
+    [33,"Wild Awakening","INT",1,"Nature",2,"Heal pet character for (3*INT)"],
+    [38,"Power Drain","WIS",2,"Nature",3,"All foe's attacks deal 30% less damage"],
+    [42,"Worldroot Cataclysm","STR",3,"Nature",3,"None"],
+    [48,"Gaia's Wrath","WIS",5,"Nature",4,"None"]
+  ],
+  Fire:[
+    [3,"Ember","DEX",2,"Fire",0,"None"],
+    [5,"Scorch","STR",2,"Fire",1,"Foe takes an additional (1*STR) damage next turn"],
+    [8,"Warm Up","WIS",0,"Fire",1,"Pets next attack deals additional 150%"],
+    [13,"Magma Surge","STR",2,"Fire",2,"Foe doesn't attack next turn"],
+    [17,"Phoenix Flame","WIS",0,"Fire",2,"Heal pet character for (2*WIS)"],
+    [22,"Melting Point","INT",2,"Fire",1,"Foe takes an additional (1*INT) damage next turn"],
+    [27,"Inferno","STR",3,"Fire",2,"None"],
+    [33,"Fire Breath","STR",2,"Fire",3,"Foe takes an additional (1*STR) damage on each of the next 2 turns"],
+    [38,"Solar Flare","DEX",2,"Fire",3,"All foe's attacks deal 30% less damage"],
+    [42,"Worldfire Cataclysm","STR",3,"Fire",3,"None"],
+    [48,"Volcanic Eruption","STR",5,"Fire",4,"None"]
+  ],
+  Water:[
+    [3,"Splash","DEX",2,"Water",0,"None"],[5,"Water Jet","DEX",2,"Water",1,"None"],
+    [8,"Soak","INT",0,"Water",1,"Foe doesn't attack next turn"],
+    [13,"Bubble Barrage","DEX",2,"Water",2,"None"],
+    [17,"Healing Rain","WIS",0,"Water",2,"Heal pet character for (2*WIS)"],
+    [22,"Torrent","STR",2,"Water",1,"None"],
+    [27,"Whirlpool","INT",1,"Water",2,"Foe takes an additional (1*INT) damage over the next 2 turns"],
+    [33,"Riptide","DEX",2,"Water",3,"Ignores foe's resistances"],
+    [38,"Tsunami","STR",2,"Water",3,"Has a 20% chance to make the foe runaway. Counts as defeating the foe."],
+    [42,"Maelstrom","INT",2,"Water",3,"Foe takes an additional (1*INT) damage every turn"],
+    [48,"Ocean's Wrath","WIS",5,"Water",4,"None"]
+  ],
+  Shadow:[
+    [3,"Sneak Attack","DEX",2,"Shadow",1,"None"],
+    [5,"Dark Whisper","CHA",1,"Shadow",1,"Foe can't attack next turn"],
+    [8,"Gloom Bolt","INT",1,"Shadow",2,"Foe's next attack does 25% less damage"],
+    [13,"Soul Drain","INT",1,"Shadow",3,"Heal pet character for (1*INT)"],
+    [17,"Void Pulse","INT",3,"Shadow",2,"None"],
+    [22,"Abyssal Maw","STR",1,"Shadow",1,"Foe takes an additional (2*STR) damage over the next 3 turns"],
+    [27,"Fear Touch","CHA",1,"Shadow",3,"Every turn, the foe has a 20% chance to not attack"],
+    [33,"Shadow Strike","DEX",3,"Shadow",1,"None"],
+    [38,"Nightmare","CHA",2,"Shadow",4,"Has a 20% chance to make the foe runaway. Counts as defeating the foe."],
+    [42,"Eclipse","INT",2,"Shadow",3,"Heal pet character for (2*INT)"],
+    [48,"The Void","INT",5,"Shadow",4,"None"]
+  ],
+  Light:[
+    [3,"Flash","DEX",1,"Light",1,"Foe has a 50% chance to not attack next turn."],
+    [5,"Radiant Dart","DEX",1,"Light",0,"None"],
+    [8,"Luminous Shield","WIS",0,"Light",4,"Reduce all incoming damage by 15%"],
+    [13,"Holy Spark","CHA",2,"Light",2,"Foes with the shadow element take an additional (1*CHA) damage next turn"],
+    [17,"Dawn Strike","DEX",3,"Light",2,"None"],
+    [22,"Healing Light","WIS",0,"Light",3,"Heal pet character for (2*WIS) this turn and a further (1*WIS) next turn"],
+    [27,"Solar Judgement","STR",2,"Light",1,"None"],
+    [33,"Seraphic Wings","DEX",0,"Light",3,"Pet's attacks deal 25% more damage for the rest of this encounter"],
+    [38,"Blinding Light","DEX",2,"Light",4,"Every turn, the foe has a 20% chance to not attack"],
+    [42,"Halo Strike","CHA",4,"Light",3,"None"],
+    [48,"Divine Judgement","WIS",5,"Light",4,"Heal pet character for (3*WIS)"]
+  ]
 };
 const CLASS_MOVES={
-  Wizard:[['Magic Missile',3,'INT'],['Arcane Bolt',4,'INT'],['Frostbite',5,'INT'],['Chain Lightning',6,'INT'],['Cataclysm',7,'INT']],
-  Druid:[['Rake',3,'STR'],['Maul',4,'STR'],['Entangle',5,'WIS'],['Moonfire',6,'INT'],['Hurricane',7,'WIS']],
-  Bard:[['Ditty',3,'CHA'],['Hit with a Lute',4,'STR'],['Lullaby',5,'CHA'],['Power Chord',6,'CHA'],['Crescendo',7,'CHA']],
-  Thief:[['Backstab',3,'DEX'],['Poison Jab',4,'DEX'],['Shadowstep',5,'DEX'],['Ambush',6,'DEX'],['Assassinate',7,'DEX']],
-  Paladin:[['Holy Strike',3,'STR'],['Shield Bash',4,'STR'],['Consecrate',5,'WIS'],['Lay on Hands',6,'WIS'],['Divine Wrath',7,'CHA']]
+  Thief:[
+    [10,"Backstab","DEX",2,"Shadow",1,"None"],
+    [15,"Smoke Bomb","DEX",0,"Shadow",0,"Pet can run from current encounter and won't take damage"],
+    [20,"Poison Blade","DEX",1,"Shadow",2,"Foe takes (1*DEX) damage each turn for the rest of encounter"],
+    [25,"Shadow Strike","DEX",3,"Shadow",1,"None"],
+    [30,"Disorient Strike","DEX",2,"Shadow",3,"Foe can't attack next turn"],
+    [35,"Marked Target","CHA",0,"Shadow",2,"Your next attack deals 300% damage."],
+    [40,"Silent Execution","DEX",4,"Shadow",4,"None"],
+    [45,"Phantom Chain","INT",1,"Shadow",0,"Power increases by 1 if it was used last turn (stacks; resets each encounter)."],
+    [50,"Assassinate","WIS",0,"Shadow",10,"Instantly kill foe if it's got less than 20% health remaining"]
+  ],
+  Wizard:[
+    [10,"Arcane Bolt","INT",2,"Light",1,"None"],
+    [15,"Mana Surge","INT",0,"Light",3,"Next attack deals 250% damage"],
+    [20,"Frost Sigil","INT",2,"Water",2,"Foe can't attack next turn"],
+    [25,"Arcane Barrier","WIS",0,"Light",5,"Incoming damage reduced by 50% for 4 turns"],
+    [30,"Mana Drain","WIS",1,"Shadow",4,"Heal pet character for (2*WIS)"],
+    [35,"Elemental Convergence","INT",4,"Fire",4,"None"],
+    [40,"Gravity Well","WIS",1,"Shadow",5,"Each turn, foe has a 25% chance to not attack for the rest of this encounter"],
+    [45,"Reality Fracture","INT",0,"Shadow",4,"This turn foe takes damage equal to his attack. Pet takes 0 damage."],
+    [50,"Astral Cataclysm","WIS",5,"Light",6,"None"]
+  ],
+  Paladin:[
+    [10,"Holy Strike","STR",2,"Light",1,"None"],
+    [15,"Divine Shield","INT",0,"Light",3,"The next 2 incoming attacks deal 25% less damage"],
+    [20,"Lay on Hands","WIS",0,"Light",3,"Heal pet character for (2*WIS)"],
+    [25,"Judgement Mark","INT",0,"Light",3,"Next attack deals 250% damage"],
+    [30,"Smite","STR",3,"Light",3,"Foe takes an additional (1*STR) damage next turn"],
+    [35,"Consecration","WIS",1,"Light",3,"Foe takes (1*WIS) damage every turn for the rest of the encounter"],
+    [40,"Divine Smite","STR",4,"Light",3,"Foe takes an additional (2*STR) damage next turn"],
+    [45,"Guardian's Oath","WIS",0,"Light",5,"If the pet takes damage next turn that should kill it, set health to 50% instead"],
+    [50,"Wrath of the Seraphim","WIS",5,"Light",6,"None"]
+  ],
+  Bard:[
+    [10,"Inspiring Tune","CHA",0,"Light",1,"Next attack deals 250% damage"],
+    [15,"Dissonant Note","DEX",2,"Water",2,"Foe takes additional (1*DEX) damage next turn"],
+    [20,"Haste Rhythm","DEX",0,"Fire",2,"Pet can run from current encounter and won't take damage"],
+    [25,"Lullaby","DEX",0,"Nature",3,"Foe can't attack next turn"],
+    [30,"Battle Anthem","CHA",0,"Fire",3,"Next attack deals 300% damage"],
+    [35,"Discordance","DEX",3,"Shadow",2,"Foe takes additional (2*DEX) damage next turn"],
+    [40,"Crescendo","CHA",3,"Light",3,"Next attack deals 350% damage"],
+    [45,"Sonic Wave","DEX",4,"Water",3,"None"],
+    [50,"Symphony of Fate","CHA",5,"Light",6,"Foe can't attack next turn"]
+  ],
+  Druid:[
+    [10,"Nature's Touch","INT",2,"Nature",1,"None"],
+    [15,"Barkskin","WIS",0,"Nature",2,"Incoming damage is reduced by 25% for 2 turns"],
+    [20,"Entangle","INT",2,"Nature",3,"Foe can't attack next turn"],
+    [25,"Wild Growth","WIS",3,"Nature",3,"None"],
+    [30,"Shape Shift","INT",0,"Nature",5,"All pet attacks deal an additional 50% for the next 4 turns"],
+    [35,"Thorn Field","INT",1,"Nature",3,"Foe takes (1*INT) damage every turn for the rest of the encounter"],
+    [40,"Spirit of the Wild","INT",0,"Nature",4,"All pet attacks deal an additional 75% for the rest of the encounter"],
+    [45,"Nature's Revival","WIS",3,"Nature",5,"Heals pet for (4*WIS)"],
+    [50,"Eden's Rebirth","WIS",5,"Nature",6,"None"]
+  ]
 };
-function moveCatalog(sk,p){
-  const out=[],el=ELEMENT[sk];
-  (ELEMENT_MOVES[el]||[]).forEach((m,i)=>out.push({id:'E'+i,name:m[0],base:m[1],talent:m[2],el:el,lvl:3+5*i,src:'Element'}));
-  if(p.cls)(CLASS_MOVES[p.cls]||[]).forEach((m,i)=>out.push({id:'C'+i,name:m[0],base:m[1],talent:m[2],el:CLASS_ELEMENT[p.cls],lvl:10+5*i,src:p.cls}));
-  return out;
-}
+function mkMove(id,a,src){return {id:id,lvl:a[0],name:a[1],trait:a[2],power:a[3],el:a[4],cd:a[5],status:a[6],src:src};}
+function moveCatalog(sk,p){const out=[];(ELEMENT_MOVES[ELEMENT[sk]]||[]).forEach((a,i)=>out.push(mkMove('E'+i,a,'Element')));if(p.cls)(CLASS_MOVES[p.cls]||[]).forEach((a,i)=>out.push(mkMove('C'+i,a,p.cls)));return out;}
 function pendingMoves(sk,p){return moveCatalog(sk,p).filter(m=>m.lvl<=p.level&&!p.mvProc[m.id]);}
-function movePower(p,m){return m.base*(p.tal[m.talent]||1);}
+function movePower(p,m){return (m.power||0)*(p.tal[m.trait]||1);}
+function tv(str,p){let t=0,re=/\((\d+)\s*\*\s*(STR|DEX|INT|WIS|CHA)\)/g,m;while(m=re.exec(str)){t+=parseInt(m[1])*(p.tal[m[2]]||1);}return t;}
 
 /* Backend-authored campaigns (admin only). Each needs a unique id. */
 const CAMPAIGNS=[
@@ -405,10 +509,10 @@ const CAMPAIGNS=[
     squares:{
       "2,4":{type:"talk",desc:"The mouth of the Whispering Caverns yawns before you.",text:"Cold air drifts out. Move north (▲) to enter."},
       "2,3":{type:"move",desc:"A junction lit by pale fungus. Passages branch east and west."},
-      "1,3":{type:"fight",desc:"A goblin sentry springs from the dark!",enemy:{name:"Goblin Sentry",element:"Fire",element2:"Fire",hp:16,atk:4,reward:60}},
+      "1,3":{type:"fight",desc:"A goblin sentry springs from the dark!",enemy:{name:"Goblin Sentry",element:"Fire",hp:16,atk:4,reward:60}},
       "3,3":{type:"item",desc:"A rusted chest rests in an alcove.",item:"Rusted Dagger",xp:30},
       "2,2":{type:"choice",desc:"Glowing runes pulse on the wall.",prompt:"The runes whisper. Do you answer?",options:[{label:"Speak the truth",xp:50,text:"The runes flare warmly. +50 XP."},{label:"Stay silent",dmg:15,text:"Shadows lash out! -15 HP."}]},
-      "2,1":{type:"fight",desc:"A skeletal warden bars the northern arch.",enemy:{name:"Skeletal Warden",element:"Dark",hp:34,atk:7,reward:120}},
+      "2,1":{type:"fight",desc:"A skeletal warden bars the northern arch.",enemy:{name:"Skeletal Warden",element:"Shadow",hp:34,atk:7,reward:120}},
       "1,1":{type:"item",desc:"A clear spring bubbles from the rock.",item:"Spring Water",xp:20,heal:40},
       "3,1":{type:"talk",desc:"A hooded merchant nods slowly.",text:"'Few reach this depth. Take my blessing, traveler.'"},
       "2,0":{type:"exit",desc:"A shimmering portal marks the way out!",reward:200}
@@ -438,7 +542,8 @@ const CAMPAIGNS=[
   }
 ];
 
-function newProg(){return {xp:0,level:1,tal:{STR:1,DEX:1,INT:1,WIS:1,CHA:1},cls:null,health:100,alive:true,pending:0,hatched:false,moves:[],mvProc:{},run:null,petName:''};}
+function newProg(){return {xp:0,level:1,tal:{STR:1,DEX:1,INT:1,WIS:1,CHA:1},cls:null,health:100,alive:true,pending:0,hatched:false,moves:[],mvProc:{},cd:{},campDone:{},run:null,petName:'',trainSec:0,restSec:0,slain:0};}
+function fmtTime(s){s=Math.round(s||0);const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);if(h>0)return h+'h '+m+'m';if(m>0)return m+'m';return s+'s';}
 let prog={};SPECIES.forEach(s=>prog[s.key]=newProg());
 let active=null, pickSel=0, pendingHatch=null;
 let budget=120, tokens=0, sessionMins=30, durIdx=2, budgetIdx=1;
@@ -454,14 +559,16 @@ let sActive=false,sTimer=null,secs=0,total=1800,gained=0,focusedSecs=0,phoneUsed
 function needFor(L){return Math.round(100*Math.pow(L,1.25));}
 function levelInfo(xp){let lvl=1,acc=0,need=needFor(1);while(xp>=acc+need){acc+=need;lvl++;need=needFor(lvl);}return {level:lvl,into:Math.floor(xp-acc),need:need};}
 function xpForLevel(L){let acc=0;for(let i=1;i<L;i++)acc+=needFor(i);return acc;}
-function stageForLevel(l){let s=0;for(let i=0;i<STAGE_MIN.length;i++){if(l>=STAGE_MIN[i])s=i;}return s;}
-function stageLabel(p){const s=stageForLevel(p.level);return s>=6?(spec(active).final+' ✦ Ultimate'):STAGE_LBL[s];}
+function stageForLevel(l){let s=0;for(let i=0;i<STAGE_MIN.length;i++){if(l>=STAGE_MIN[i])s=i;}return s;} // 0..5 by level
+function petAllCampaignsDone(p){return p&&p.campDone&&CAMPAIGNS.length>0&&CAMPAIGNS.every(c=>p.campDone[c.id]);}
+function petStage(p){return petAllCampaignsDone(p)?6:stageForLevel(p.level);} // stage 6 = Ultimate
+function stageLabel(p){const s=petStage(p);return s>=6?(spec(active).final+' ✦ Ultimate'):STAGE_LBL[s];}
 function spec(k){return SPECIES.find(s=>s.key===k);}
 function nameOf(k){return (prog[k]&&prog[k].petName)||spec(k).name;}
 function power(p){let b=p.level*8+10;b+=p.tal.STR*4+p.tal.DEX*3+p.tal.INT*3+p.tal.WIS*2+p.tal.CHA;if(p.cls)b+=6;return Math.round(b);}
 function fmt(s){const m=Math.floor(s/60);return m+'m '+(s%60)+'s';}
 function log(m){const el=document.getElementById('log');const t=new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});el.innerHTML=`<div>• ${t} — ${m}</div>`+(el.innerHTML==='— waiting —'?'':el.innerHTML);}
-function addXp(k,amt){const p=prog[k];const before=p.level;p.xp+=amt;p.level=levelInfo(p.xp).level;const g=p.level-before;if(g>0)p.pending+=g;return g;}
+function addXp(k,amt){const p=prog[k];if(p.level>=MAX_LEVEL){p.level=MAX_LEVEL;return 0;}const before=p.level;p.xp+=amt;p.level=Math.min(MAX_LEVEL,levelInfo(p.xp).level);const g=p.level-before;if(g>0)p.pending+=g;return g;}
 function key(x,y){return x+','+y;}
 let toastT=null;
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600);}
@@ -553,7 +660,7 @@ function renderPicker(){
   SPECIES.forEach((s,i)=>{
     const pr=prog[s.key];
     const egg=(!pr.hatched||!pr.alive);
-    const img=egg?eggSVG(s):art(s.key,stageForLevel(pr.level),pr.health,pr.cls);
+    const img=egg?eggSVG(s):art(s.key,petStage(pr),pr.health,pr.cls);
     const lbl=!pr.alive?'fallen':(!pr.hatched?'egg':'Lv'+pr.level);
     const d=document.createElement('div');
     d.className='egg'+(i===pickSel?' sel':'');
@@ -564,20 +671,23 @@ function renderPicker(){
   renderPickPrev();
 }
 function renderPickPrev(){
-  const s=SPECIES[pickSel],pr=prog[s.key],st=stageForLevel(pr.level),egg=(!pr.hatched||!pr.alive);
+  const s=SPECIES[pickSel],pr=prog[s.key],st=petStage(pr),egg=(!pr.hatched||!pr.alive);
   document.getElementById('pickPrev').innerHTML=egg?eggSVG(s):art(s.key,st,pr.health,pr.cls);
   document.getElementById('pickName').textContent=egg?s.eggName:nameOf(s.key);
   document.getElementById('pickDesc').textContent=egg?(!pr.alive?'Fallen — re-hatches at Level 1':''):(`${s.name} · Lv ${pr.level} · ${st>=6?('✦ '+s.final):STAGE_LBL[st]} · ${ELEMENT[s.key]}`);
+  document.getElementById('pickStats').textContent=(pr.hatched&&pr.alive)?statLine(pr):'';
+  document.getElementById('pickBtn').textContent=(pr.hatched&&pr.alive&&pr.level>=1)?('Choose '+nameOf(s.key)):'Hatch & Begin';
   renderHistory(s.key);
 }
 const LS_HIST='fc_history_v1';
 function saveHistory(){try{localStorage.setItem(LS_HIST,JSON.stringify(history));}catch(e){}}
 function loadHistory(){try{const s=localStorage.getItem(LS_HIST);if(s)history=JSON.parse(s)||{};}catch(e){}}
-function recordDeath(cause){const k=active;if(!k)return;const p=prog[k];history[k]=history[k]||[];history[k].unshift({name:nameOf(k),cls:p.cls||null,level:p.level,cause:cause||'Training accident'});if(history[k].length>15)history[k].length=15;saveHistory();}
+function recordDeath(cause){const k=active;if(!k)return;const p=prog[k];history[k]=history[k]||[];history[k].unshift({name:nameOf(k),cls:p.cls||null,level:p.level,cause:cause||'Training accident',trainSec:p.trainSec||0,restSec:p.restSec||0,slain:p.slain||0});if(history[k].length>20)history[k].length=20;saveHistory();}
+function statLine(o){return `🎓 ${fmtTime(o.trainSec)} trained · 🧘 ${fmtTime(o.restSec)} rested · ⚔ ${o.slain||0} slain`;}
 function renderHistory(k){
-  const el=document.getElementById('pickHistory');const list=history[k]||[];
+  const el=document.getElementById('pickHistory');const list=(history[k]||[]).slice().sort((a,b)=>(b.level||0)-(a.level||0)).slice(0,3);
   if(!list.length){el.innerHTML=`<div class="histempty">No fallen ${ELEMENT[k]} pets yet.<br>Hatch one and make it a legend.</div>`;return;}
-  el.innerHTML=`<div class="histhead">Previous ${ELEMENT[k]} pets</div>`+list.slice(0,5).map(h=>`<div class="histrow"><span class="hn">${h.name}</span><span class="hc">${h.cls||'No class'}</span><span class="hl">Lv ${h.level}</span><div class="hd">☠ ${h.cause}</div></div>`).join('');
+  el.innerHTML=`<div class="histhead">Top ${ELEMENT[k]} pets</div>`+list.map(h=>`<div class="histrow"><span class="hn">${h.name}</span><span class="hc">${h.cls||'No class'}</span><span class="hl">Lv ${h.level}</span><div class="hd">${statLine(h)}</div><div class="hd">☠ ${h.cause}</div></div>`).join('');
 }
 function beginWith(){
   const s=SPECIES[pickSel];
@@ -587,7 +697,7 @@ function beginWith(){
     log(`Switched to ${nameOf(s.key)} the ${s.name}.`);return;
   }
   prog[s.key]=newProg();pendingHatch=s.key;
-  showModal(`<h3>Hatch your ${s.eggName}</h3><p style="text-align:center;color:var(--muted);font-size:11px;margin:-4px 0 8px">${ELEMENT[s.key]} · name your new companion</p><input id="nameInput" maxlength="14" placeholder="${s.name}" value="${s.name}" style="width:100%;padding:10px;border-radius:10px;border:1px solid #2c3c5c;background:#0d1626;color:var(--ink);font-size:15px;text-align:center"/><button class="btn primary" style="margin-top:10px" onclick="confirmName()">Hatch &amp; Begin</button>`);
+  showModal(`<h3>Hatch your ${s.eggName}</h3><p style="text-align:center;color:var(--muted);font-size:11px;margin:-4px 0 8px">${ELEMENT[s.key]} · name your new companion</p><input id="nameInput" maxlength="14" placeholder="${s.name}" value="${s.name}" style="width:100%;padding:10px;border-radius:10px;border:1px solid #2c3c5c;background:#0d1626;color:var(--ink);font-size:15px;text-align:center"/><button class="btn primary" style="margin-top:10px" onclick="confirmName()">Hatch &amp; Begin</button>`,true);
   setTimeout(()=>{const el=document.getElementById('nameInput');if(el){el.focus();el.select();el.addEventListener('keydown',e=>{if(e.key==='Enter')confirmName();});}},60);
 }
 function confirmName(){
@@ -612,11 +722,11 @@ function updateAll(){
   const p=prog[active],s=spec(active),stg=stageForLevel(p.level);
   document.getElementById('homeArt').innerHTML=art(active,stg,p.health,p.cls);
   document.getElementById('homeName').textContent=nameOf(active);
-  document.getElementById('homeStage').textContent=`${s.name} · Lv ${p.level} · ${stageLabel(p)} · ${ELEMENT[active]}${p.cls?'+'+CLASS_ELEMENT[p.cls]:''}`;
-  const info=levelInfo(p.xp);
-  document.getElementById('homeXp').style.width=(info.into/info.need*100)+'%';
-  document.getElementById('homeXpName').textContent=`Lv ${p.level} → ${p.level+1}`;
-  document.getElementById('homeXpL').textContent=`${info.into}/${info.need}`;
+  document.getElementById('homeStage').textContent=`${s.name} · Lv ${p.level} · ${stageLabel(p)} · ${ELEMENT[active]}${p.cls?' · '+p.cls:''}`;
+  const info=levelInfo(p.xp),mx=p.level>=MAX_LEVEL;
+  document.getElementById('homeXp').style.width=(mx?100:info.into/info.need*100)+'%';
+  document.getElementById('homeXpName').textContent=mx?`Lv ${MAX_LEVEL} · MAX`:`Lv ${p.level} → ${p.level+1}`;
+  document.getElementById('homeXpL').textContent=mx?'—':`${info.into}/${info.need}`;
   document.getElementById('homeHp').style.width=p.health+'%';
   document.getElementById('homeHpL').textContent=Math.round(p.health)+'%';
   document.getElementById('lvlBtn').style.display=p.pending>0?'block':'none';
@@ -625,20 +735,29 @@ function updateAll(){
   document.getElementById('homeFxEl').textContent=EL_EMOJI[ELEMENT[active]]||'';   // element idle animation
   document.getElementById('homeFxCls').textContent=p.cls?(CLASS_EMOJI[p.cls]||''):''; // class idle animation
 }
+function moveLine(m,p){const pw=m.power?`${m.power}×${m.trait}`:'support';return `${m.name} <span style="color:var(--muted);font-size:10px">(${m.el} · ${pw}${m.cd?' · cd'+m.cd:''})</span>`;}
 function openStats(){
   if(!active)return;const p=prog[active],s=spec(active);
   let tl='';TALENTS.forEach(t=>tl+=`<div class="tal"><b>${p.tal[t]}</b><span>${t}</span></div>`);
-  const moves=p.moves.length?p.moves.map(m=>`${m.name} <span style="color:var(--muted);font-size:10px">(${m.el} · ${m.base}×${m.talent})</span>`).join('<br>'):'<i style="color:var(--muted)">none yet — first move at Lv 3</i>';
-  const cls=p.cls?`🎓 ${p.cls} · ${CLASS_ELEMENT[p.cls]}`:(p.level>=5?'<span style="color:var(--gold)">Level-up to choose a class</span>':'<span style="color:var(--muted)">Class unlocks at Lv 5</span>');
+  const moves=p.moves.length?p.moves.map(m=>moveLine(m,p)).join('<br>'):'<i style="color:var(--muted)">none yet — first move at Lv 3</i>';
+  const cls=p.cls?`🎓 ${p.cls}`:(p.level>=10?'<span style="color:var(--gold)">Level-up to choose a class</span>':'<span style="color:var(--muted)">Class unlocks at Lv 10</span>');
+  let spellbook='';
+  if(p.cls){
+    const learned={};p.moves.forEach(m=>{if(m.src===p.cls)learned[m.name]=1;});
+    const rows=(CLASS_MOVES[p.cls]||[]).map(a=>{const known=!!learned[a[1]];const avail=p.level>=a[0];const col=known?'var(--accent)':avail?'var(--ink)':'var(--muted)';const tag=known?' ✓':avail?'':' 🔒';return `<div class="histrow" style="opacity:${avail?1:.6}"><span class="hn" style="color:${col}">${a[1]}</span><span class="hl">Lv ${a[0]}${tag}</span><div class="hd">${a[4]} · ${a[3]?a[3]+'×'+a[2]:'support'} · cd ${a[5]}</div>${a[6]&&a[6]!=='None'?`<div class="hd" style="color:var(--accent2)">${a[6]}</div>`:''}</div>`;}).join('');
+    spellbook=`<p style="text-align:center;font-size:11px;color:var(--accent2);margin:10px 0 2px">📖 ${p.cls} Spellbook</p><div style="max-height:170px;overflow:auto">${rows}</div>`;
+  }
   showModal(`<h3 style="margin-bottom:2px">${nameOf(active)}</h3>
-    <div style="text-align:center;color:var(--muted);font-size:11px;margin-bottom:6px">${s.name} · Lv ${p.level} · ${stageLabel(p)} · ${ELEMENT[active]}${p.cls?'+'+CLASS_ELEMENT[p.cls]:''}</div>
-    <div style="width:88px;height:88px;margin:0 auto 4px">${art(active,stageForLevel(p.level),p.health,p.cls)}</div>
+    <div style="text-align:center;color:var(--muted);font-size:11px;margin-bottom:6px">${s.name} · Lv ${p.level} · ${stageLabel(p)} · ${ELEMENT[active]}${p.cls?' · '+p.cls:''}</div>
+    <div style="width:88px;height:88px;margin:0 auto 4px">${art(active,petStage(p),p.health,p.cls)}</div>
+    <div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:2px">${statLine(p)}</div>
     <p style="text-align:center;font-size:11px;color:var(--accent2);margin:6px 0 2px">Talents (start at 1)</p>
     <div class="talents">${tl}</div>
     <p style="text-align:center;font-size:11px;color:var(--accent2);margin:8px 0 2px">Class</p>
     <div style="text-align:center;font-size:12.5px">${cls}</div>
-    <p style="text-align:center;font-size:11px;color:var(--accent2);margin:8px 0 2px">Moves (${p.moves.length}/3)</p>
+    <p style="text-align:center;font-size:11px;color:var(--accent2);margin:8px 0 2px">Equipped moves (${p.moves.length}/3 + Tackle)</p>
     <div style="text-align:center;font-size:12px;line-height:1.7">${moves}</div>
+    ${spellbook}
     <div class="crow" style="margin-top:10px"><button class="btn ghost sm" style="flex:1" onclick="hideModal()">Close</button><button class="btn ghost sm" style="flex:1" onclick="hideModal();go('pick')">↺ Switch pet</button></div>`);
 }
 
@@ -668,33 +787,20 @@ function setFocusAnim(){
   if(sessionType==='mind'){art.classList.add('anim-rest');em.textContent='💤';}
   else{art.classList.add('anim-attack');em.textContent='⚔️';}
 }
-/* Auto-detect leaving the app (switch apps / lock screen / background) without tapping a button. */
+/* Locking the phone OR leaving the app both count as phone-allowance time. */
 let hiddenAt=0;
-// When the page is hidden: if the user was "in another app" (phoneUp) it's phone time;
-// otherwise we treat it as a locked screen and keep the session running (credited on return).
 function onVisibility(){
   if(!sActive)return;
-  if(document.hidden){hiddenAt=Date.now();}
-  else if(hiddenAt){const sec=Math.round((Date.now()-hiddenAt)/1000);hiddenAt=0;if(phoneUp)reconcilePhone(sec);else reconcileLock(sec);}
+  if(document.hidden){hiddenAt=Date.now();if(!phoneUp)setPhone(true);}
+  else{if(hiddenAt){reconcilePhone(Math.round((Date.now()-hiddenAt)/1000));hiddenAt=0;}setPhone(false);}
 }
-function reconcileLock(sec){ // screen was locked — session continued in the "background"
-  if(sec<=0||!sActive)return;const p=prog[active];
-  const s=Math.min(sec,secs),before=focusedSecs,lvB=p.level;
-  secs-=s;focusedSecs+=s;
-  if(sessionType==='mind')p.health=Math.min(100,p.health+0.05*s);else{addXp(active,s);gained+=s;}
-  const tk=Math.floor(focusedSecs/TOKEN_SECS)-Math.floor(before/TOKEN_SECS);if(tk>0)tokens+=tk;
-  if(p.level>lvB)document.getElementById('focusLvlUp').style.display='block';
-  log(`🔒 Locked ${sec}s — ${sessionType==='mind'?'kept healing':'kept training (+'+s+' XP)'}.`);
-  renderSession();
-  if(secs<=0)finishSession(true);
-}
-function reconcilePhone(sec){ // time spent in another app counts as phone time
+function reconcilePhone(sec){ // time away (locked or in another app) counts as phone time
   if(sec<=0||!sActive)return;const p=prog[active];
   const overBefore=Math.max(0,phoneUsed-budget);
   phoneUsed+=sec;
   const newOver=Math.max(0,phoneUsed-budget)-overBefore;
-  log(`📱 ${sec}s in another app — counts as phone time.`);
-  if(newOver>0){const dmg=Math.min(p.health,DRAIN_PER_SEC*newOver);p.health=Math.max(0,p.health-dmg);log(`⚠ Over allowance — ${nameOf(active)} lost ${dmg} HP.`);notify(nameOf(active)+' lost health','You were in another app past your allowance.');}
+  log(`📱 ${sec}s away (locked / another app) — counts as phone time.`);
+  if(newOver>0){const dmg=Math.min(p.health,DRAIN_PER_SEC*newOver);p.health=Math.max(0,p.health-dmg);log(`⚠ Over allowance — ${nameOf(active)} lost ${dmg} HP.`);notify(nameOf(active)+' lost health','You were away past your allowance.');}
   renderSession();
   if(p.health<=0)onDeath('Training accident');
 }
@@ -715,6 +821,7 @@ function tick(){
   }
   document.getElementById('focusArt').classList.remove('shake');
   secs--;focusedSecs++;
+  if(sessionType==='mind')p.restSec++;else p.trainSec++; // lifetime stats for this pet
   if(sessionType==='mind'){
     p.health=Math.min(100,p.health+0.05); // heal 3%/min (10%->100% in ~30 min), no XP
     const eat=(Math.floor(focusedSecs/15)%2)===1;
@@ -735,10 +842,11 @@ function renderSession(){
   const tEl=document.getElementById('timer'),col=EL_COLOR[ELEMENT[active]]||'#eef2f9';
   tEl.textContent=`${m}:${String(s).padStart(2,'0')}`;
   tEl.style.color=col;tEl.style.textShadow=`0 0 18px ${col}66`;tEl.style.fontSize='50px';
-  document.getElementById('focusArt').innerHTML=art(active,stageForLevel(p.level),p.health,p.cls);
-  document.getElementById('focusXp').style.width=Math.min(100,info.into/info.need*100)+'%';
-  document.getElementById('focusXpName').textContent=`Lv ${p.level} → ${p.level+1}`;
-  document.getElementById('focusXpL').textContent=`${info.into}/${info.need}`;
+  document.getElementById('focusArt').innerHTML=art(active,petStage(p),p.health,p.cls);
+  const mx=p.level>=MAX_LEVEL;
+  document.getElementById('focusXp').style.width=(mx?100:Math.min(100,info.into/info.need*100))+'%';
+  document.getElementById('focusXpName').textContent=mx?`Lv ${MAX_LEVEL} · MAX`:`Lv ${p.level} → ${p.level+1}`;
+  document.getElementById('focusXpL').textContent=mx?'—':`${info.into}/${info.need}`;
   document.getElementById('focusHp').style.width=p.health+'%';
   document.getElementById('focusHpL').textContent=Math.round(p.health)+'%';
   const phpct=budget>0?Math.min(100,phoneUsed/budget*100):(phoneUsed>0?100:0);
@@ -748,7 +856,7 @@ function renderSession(){
 }
 function renderLock(){
   if(!active)return;const p=prog[active];
-  document.getElementById('lockArt').innerHTML=art(active,stageForLevel(p.level),p.health,p.cls);
+  document.getElementById('lockArt').innerHTML=art(active,petStage(p),p.health,p.cls);
   document.getElementById('lockTitle').textContent=(sessionType==='mind'?'🧘 Mindfulness':'🎓 Training');
   document.getElementById('lockState').textContent=`${nameOf(active)} · Lv ${p.level} · ❤ ${Math.round(p.health)}%`;
   const m=Math.floor(secs/60),s=secs%60;const lt=document.getElementById('lockTime'),lc=EL_COLOR[ELEMENT[active]]||'#5fd3a8';lt.textContent=`${m}:${String(s).padStart(2,'0')}`;lt.style.color=lc;lt.style.fontSize='30px';lt.style.textShadow=`0 0 16px ${lc}66`;
@@ -775,7 +883,7 @@ function onDeath(cause){
 function openProgression(){
   const p=prog[active];
   if(p.pending>0){showTalentStep();return;}
-  if(p.level>=5&&!p.cls){showClassStep();return;}
+  if(p.level>=10&&!p.cls){showClassStep();return;}
   hideModal();updateAll();renderGallery();syncClsSel();
 }
 function showTalentStep(){
@@ -785,29 +893,30 @@ function showTalentStep(){
 }
 function assignTal(t){const p=prog[active];p.tal[t]++;p.pending--;log(`+1 ${TALENT_FULL[t]} (now ${p.tal[t]}).`);openProgression();}
 function showClassStep(){
-  let opts='';CLASSES.forEach(c=>opts+=`<div class="opt" onclick="chooseClass('${c[0]}')">${c[0]}<small>${c[1]}</small></div>`);
-  showModal(`<h3>🎓 Level 5 — choose a class</h3><div class="opts">${opts}</div>`);
+  let opts='';CLASSES.forEach(c=>opts+=`<div class="opt" onclick="chooseClass('${c}')">${c}<small>${CLASS_EMOJI[c]||''}</small></div>`);
+  showModal(`<h3>🎓 Level 10 — choose a class</h3><div class="opts">${opts}</div>`);
 }
 function chooseClass(c){prog[active].cls=c;log(`Class chosen: ${c} — costume applied!`);openProgression();}
-function showModal(html){document.getElementById('mcard').innerHTML=html;document.getElementById('modal').classList.add('show');}
-function hideModal(){document.getElementById('modal').classList.remove('show');}
+function showModal(html,top){const m=document.getElementById('modal');document.getElementById('mcard').innerHTML=html;m.classList.toggle('top',!!top);m.classList.add('show');}
+function hideModal(){const m=document.getElementById('modal');m.classList.remove('show');m.classList.remove('top');}
 
 /* ===== MOVES (learn / replace / pass) ===== */
 function openMoves(){
   const p=prog[active],pend=pendingMoves(active,p);
   if(pend.length===0){hideModal();updateAll();return;}
   const mv=pend[0];
-  const head=`<h3>✨ ${nameOf(active)} can learn<br>${mv.name}</h3><p style="text-align:center;color:var(--muted);font-size:12px;margin:0 0 10px">${mv.src} move · ${mv.el} · power ${mv.base} × ${mv.talent} points</p>`;
+  const pw=mv.power?`power ${mv.power}×${mv.trait}`:'support';
+  const head=`<h3>✨ ${nameOf(active)} can learn<br>${mv.name}</h3><p style="text-align:center;color:var(--muted);font-size:12px;margin:0 0 4px">${mv.src} · ${mv.el} · ${pw} · cd ${mv.cd}</p>${mv.status&&mv.status!=='None'?`<p style="text-align:center;color:var(--accent2);font-size:10.5px;margin:0 0 10px">${mv.status}</p>`:'<div style="margin-bottom:8px"></div>'}`;
   if(p.moves.length<3){
     showModal(head+`<div class="opts"><div class="opt" onclick="learnMove('${mv.id}',-1)">Learn it</div><div class="opt" onclick="passMove('${mv.id}')">Pass</div></div>`);
   } else {
-    let slots='';p.moves.forEach((m,i)=>slots+=`<div class="opt" onclick="learnMove('${mv.id}',${i})">Forget ${m.name}<small>${m.base}×${m.talent}</small></div>`);
+    let slots='';p.moves.forEach((m,i)=>slots+=`<div class="opt" onclick="learnMove('${mv.id}',${i})">Forget ${m.name}<small>${m.power?m.power+'×'+m.trait:'support'}</small></div>`);
     showModal(head+`<p style="text-align:center;color:var(--gold);font-size:11px;margin:0 0 8px">Moves full (3). Replace one or pass.</p><div class="opts">${slots}<div class="opt" onclick="passMove('${mv.id}')">Pass (keep current)</div></div>`);
   }
 }
 function learnMove(id,slot){
   const p=prog[active],mv=moveCatalog(active,p).find(m=>m.id===id);if(!mv)return;
-  const mo={name:mv.name,el:mv.el,base:mv.base,talent:mv.talent,src:mv.src};
+  const mo={name:mv.name,el:mv.el,power:mv.power,trait:mv.trait,cd:mv.cd,status:mv.status,src:mv.src};
   if(slot<0||p.moves.length<3)p.moves.push(mo);else p.moves[slot]=mo;
   p.mvProc[id]=true;log(`Learned ${mv.name}.`);openMoves();
 }
@@ -861,6 +970,8 @@ function move(dx,dy){
   const tgt=camp.squares[k];
   if(tgt.req&&!reqMet(tgt.req)){toast(tgt.req.msg||'You cannot enter here yet.');return;}
   if(tokens<1){toast('No movement tokens — focus to earn more.');return;}
+  // an item requirement consumes the item when used
+  if(tgt.req&&tgt.req.kind==='item'){const i=run.inv.indexOf(tgt.req.value);if(i>=0){run.inv.splice(i,1);log(`🔑 Used ${tgt.req.value}.`);}}
   tokens--;run.prev={x:run.pos.x,y:run.pos.y};run.pos={x:nx,y:ny};run.seen[k]=true;run.msg='';
   renderCamp();showEncounter(k);
 }
@@ -869,7 +980,7 @@ function renderCamp(){
   document.getElementById('campName').textContent=camp.name;
   document.getElementById('campTokens').textContent=tokens;
   const p=prog[active];
-  document.getElementById('campHero').innerHTML=art(active,stageForLevel(p.level),p.health,p.cls);
+  document.getElementById('campHero').innerHTML=art(active,petStage(p),p.health,p.cls);
   document.getElementById('campHp').style.width=p.health+'%';
   document.getElementById('campHpL').textContent=Math.round(p.health)+'%';
   let g='';
@@ -891,9 +1002,8 @@ function showEncounter(k){
   if(run.done){panel.innerHTML=html+`<div class="cwin">✨ Campaign complete!</div>`+(run.msg?`<div class="cmsg">${run.msg}</div>`:'');return;}
   if(sq.type==='fight'&&!run.cleared[k]){
     if(run.fight&&run.fight.k===k){panel.innerHTML=html+fightPanel(k);return;}
-    const e=sq.enemy,mu=matchupMod(petEls(active,prog[active]),enemyEls(e));
-    const hint=mu>1.05?' — strong matchup ▲':mu<0.95?' — weak matchup ▼':'';
-    html+=`<div class="cfoe">⚔ ${e.name} · ${enemyEls(e).join('+')} · HP ${e.hp}${hint}</div><div class="crow"><button class="btn gold sm" onclick="startFight('${k}')">Fight</button><button class="btn ghost sm" onclick="campFlee('${k}')">Run away</button></div>`;
+    const e=sq.enemy;
+    html+=`<div class="cfoe">⚔ ${e.name} · ${e.element} · HP ${e.hp}${e.loot?' · drops '+e.loot:''}</div><div class="crow"><button class="btn gold sm" onclick="startFight('${k}')">Fight</button><button class="btn ghost sm" onclick="campFlee('${k}')">Run away</button></div>`;
   } else if(sq.type==='item'&&!run.cleared[k]){
     html+=`<button class="btn gold sm" onclick="campItem('${k}')">Pick up: ${sq.item}</button>`;
   } else if(sq.type==='choice'&&!run.cleared[k]){
@@ -906,34 +1016,96 @@ function showEncounter(k){
   if(run.msg)html+=`<div class="cmsg">${run.msg}</div>`;
   panel.innerHTML=html;
 }
+function petMoves(p){return (p.moves&&p.moves.length?p.moves.slice():[]).concat([TACKLE]);} // 3 held + Tackle
 function fightPanel(k){
-  const f=run.fight,p=prog[active],e=f.enemy;
-  const mu=matchupMod(petEls(active,p),enemyEls(e));
-  const muTag=mu>1.05?`<span style="color:var(--accent)">▲ +${Math.round((mu-1)*100)}%</span>`:mu<0.95?`<span style="color:var(--warn)">▼ ${Math.round((mu-1)*100)}%</span>`:'<span style="color:var(--muted)">even</span>';
-  let h=`<div class="cfoe">⚔ ${e.name} · ${enemyEls(e).join('+')} &nbsp; ${muTag}</div>`;
+  const f=run.fight,p=prog[active],e=f.enemy,pel=ELEMENT[active];p.cd=p.cd||{};
+  let h=`<div class="cfoe">⚔ ${e.name} · ${e.element}</div>`;
   h+=`<div class="bar hp" style="margin-top:4px"><i style="width:${Math.max(0,e.hp/e.max*100)}%"></i></div><div class="barlbl"><span>Enemy HP</span><span>${Math.max(0,Math.round(e.hp))}/${e.max}</span></div>`;
-  const mvs=p.moves.length?p.moves:[STRUGGLE];
   h+=`<div class="movebtns">`;
-  mvs.forEach((m,i)=>{const pw=Math.round(movePower(p,m)*mu);const cls=mu>1.05?' up':mu<0.95?' down':'';h+=`<div class="movebtn${cls}" onclick="useMove(${p.moves.length?i:-1})"><div class="mi">${EL_EMOJI[m.el]||'⚔️'}</div><div class="mn">${m.name}</div><div class="mp">~${pw} dmg</div></div>`;});
+  petMoves(p).forEach((m,i)=>{
+    const cdLeft=(m.name==='Tackle')?0:(p.cd[m.name]||0);
+    const mu=matchup1(m.el,e.element);
+    const pw=Math.round(movePower(p,m)*mu);
+    const cls=(cdLeft>0)?' down':(mu>1?' up':'');
+    const sub=cdLeft>0?`CD ${cdLeft}`:(m.power?`~${pw}`:'support');
+    const idx=(m.name==='Tackle')?-1:i;
+    h+=`<div class="movebtn${cls}" ${cdLeft>0?'':'onclick="useMove('+idx+')"'} style="${cdLeft>0?'opacity:.45;cursor:not-allowed':''}"><div class="mi">${EL_EMOJI[m.el]||'⚔️'}</div><div class="mn">${m.name}</div><div class="mp">${sub}</div></div>`;
+  });
   h+=`</div>`;
-  h+=`<button class="btn danger" onclick="campFlee('${k}')">🏃 Run away (−25% HP)</button>`;
+  h+=`<button class="btn danger" onclick="campFlee('${k}')">🏃 Run away${f.fleeSafe?' (safe)':' (−25% HP)'}</button>`;
   if(run.msg)h+=`<div class="cmsg">${run.msg}</div>`;
   return h;
 }
-function startFight(k){const e=camp.squares[k].enemy;run.fight={k:k,enemy:{name:e.name,element:e.element,element2:e.element2,atk:e.atk,reward:e.reward,hp:e.hp,max:e.hp}};run.msg='';renderCamp();showEncounter(k);}
-function campFlee(k){const p=prog[active];const dmg=25;p.health=Math.max(0,p.health-dmg);run.fight=null;log('🏃 Fled the fight — lost '+dmg+' HP.');if(p.health<=0){run.msg='';campFail();return;}run.msg=`You fled and took ${dmg} damage.`;run.pos={x:run.prev.x,y:run.prev.y};renderCamp();showEncounter(key(run.pos.x,run.pos.y));}
+function startFight(k){const e=camp.squares[k].enemy;run.fight={k:k,enemy:{name:e.name,element:e.element,atk:e.atk,reward:e.reward,loot:e.loot,hp:e.hp,max:e.hp},foeSkip:0,foeSkipChance:0,foeDot:[],nextMult:1,petMult:1,petMultTurns:0,incPct:0,incTurns:0,foeRedPct:0,foeRedTurns:0,healNext:0,guardian:false,fleeSafe:false,lastMove:'',chain:0};prog[active].cd=prog[active].cd||{};run.msg='';renderCamp();showEncounter(k);}
+function campFlee(k){const p=prog[active];const safe=run.fight&&run.fight.fleeSafe;const dmg=safe?0:25;if(dmg)p.health=Math.max(0,p.health-dmg);run.fight=null;log(safe?'🏃 Slipped away safely.':'🏃 Fled the fight — lost '+dmg+' HP.');if(p.health<=0){run.msg='';campFail();return;}run.msg=safe?'You slipped away unharmed.':`You fled and took ${dmg} damage.`;run.pos={x:run.prev.x,y:run.prev.y};renderCamp();showEncounter(key(run.pos.x,run.pos.y));}
+function winFight(f,e,p){run.cleared[f.k]=true;if(!run.defeated.includes(e.name))run.defeated.push(e.name);p.slain=(p.slain||0)+1;const xp=e.reward+p.tal.CHA*5;addXp(active,xp);let lootMsg='';if(e.loot){run.inv.push(e.loot);lootMsg=` Dropped ${e.loot}!`;log(`🎁 ${e.name} dropped ${e.loot}.`);}run.fight=null;run.msg=`🏆 Defeated ${e.name}! +${xp} XP.${lootMsg}`;log(`⚔ Defeated ${e.name} (+${xp} XP).`);renderCamp();showEncounter(f.k);}
+function applyMoveStatus(mv,f,p,e){
+  const s=mv.status;if(!s||s==='None')return '';const low=s.toLowerCase();
+  // heals
+  if(low.includes('heal')){const ms=[...s.matchAll(/\((\d+)\s*\*\s*(STR|DEX|INT|WIS|CHA)\)/g)];if(ms.length){const now=parseInt(ms[0][1])*(p.tal[ms[0][2]]||1);p.health=Math.min(100,p.health+now);if(low.includes('next turn')&&ms[1])f.healNext=parseInt(ms[1][1])*(p.tal[ms[1][2]]||1);return ` +${now} HP.`;}return '';}
+  // next-attack multiplier
+  let nm=s.match(/next attack deals (?:an )?(?:additional )?(\d+)%/i);
+  if(nm){const pct=parseInt(nm[1]);f.nextMult=low.includes('additional')?(1+pct/100):(pct/100);return ` Next attack ×${f.nextMult.toFixed(2)}.`;}
+  // ongoing pet damage buff
+  let pm=s.match(/attacks deal (?:an )?(?:additional )?(\d+)%/i);
+  if(pm&&(low.includes('rest of')||low.includes('next'))){const pct=parseInt(pm[1]);f.petMult=(f.petMult||1)*(1+pct/100);const tn=s.match(/next (\d+) turns/);f.petMultTurns=tn?parseInt(tn[1]):999;return ` Damage boosted.`;}
+  if(low.includes("pet's attacks deal")&&low.includes('more')){const c=s.match(/(\d+)%/);if(c){f.petMult*=(1+parseInt(c[1])/100);f.petMultTurns=999;return ' Damage boosted.';}}
+  // foe skip
+  if(low.includes("for 2 turns")&&low.includes('attack')){f.foeSkip+=2;return ` ${e.name} won't act for 2 turns.`;}
+  if(low.includes("foe doesn't attack")||low.includes("can't attack")||low.includes("can’t attack")){f.foeSkip+=1;return ` ${e.name} can't act next turn.`;}
+  if(low.includes('50% chance to not attack')){if(Math.random()<0.5){f.foeSkip+=1;return ` ${e.name} is dazzled!`;}return ' (no effect)';}
+  if(low.includes('chance to not attack')){const c=s.match(/(\d+)%/);f.foeSkipChance=c?parseInt(c[1])/100:0.2;return ` ${e.name} may falter.`;}
+  // incoming reduce
+  if(low.includes('incoming')){const c=s.match(/(\d+)%/);const tn=s.match(/(\d+)\s*turns?/);if(c){f.incPct=parseInt(c[1])/100;f.incTurns=tn?parseInt(tn[1]):(low.includes('next 2')?2:999);return ' Incoming damage reduced.';}}
+  // foe damage reduce
+  if((low.includes("foe's next attack")||low.includes("foe's attacks"))&&low.includes('less')){const c=s.match(/(\d+)%/);f.foeRedPct=c?parseInt(c[1])/100:0.25;f.foeRedTurns=low.includes('all')?999:1;return ` ${e.name} weakened.`;}
+  // DoT on foe
+  if((low.includes('foe take')||low.includes('foe takes'))&&low.includes('damage')&&(low.includes('turn'))){const v=tv(s,p);let turns=1;const tm=s.match(/next (\d+) turns/)||s.match(/(\d+) turns/);if(tm)turns=parseInt(tm[1]);if(low.includes('every turn')||low.includes('each turn')||low.includes('rest of'))turns=99;if(v>0){f.foeDot.push({val:v,turns:turns});return ` ${e.name} afflicted (${v}/turn).`;}}
+  // runaway-as-defeat
+  if(low.includes('runaway')||low.includes('run away')){if(Math.random()<0.2){e.hp=0;return ` ${e.name} flees — defeated!`;}return ' (no effect)';}
+  // instakill
+  if(low.includes('instantly kill')){if(e.hp<0.2*e.max){e.hp=0;return ' Execution!';}return ' (target too healthy)';}
+  // reflect (reality fracture)
+  if(low.includes('damage equal to his attack')){e.hp-=(e.atk||0);f.foeSkip+=1;return ` ${e.name} takes ${e.atk} reflected; pet unharmed.`;}
+  // guardian
+  if(low.includes('increase')&&low.includes('50%')&&low.includes('health')){f.guardian=true;return " Guardian's Oath ready.";}
+  // safe flee
+  if(low.includes('run from current encounter')){f.fleeSafe=true;return ' You can slip away safely.';}
+  return '';
+}
 function useMove(mi){
-  const f=run.fight;if(!f)return;const p=prog[active],e=f.enemy;
-  const mv=mi<0?STRUGGLE:p.moves[mi];
-  const mu=matchupMod(petEls(active,p),enemyEls(e));
-  let dmg=Math.max(1,Math.round(movePower(p,mv)*mu*(0.85+Math.random()*0.3)));
-  e.hp-=dmg;
-  let msg=`You used ${mv.name}! ${mu>1.05?'Super effective! ':mu<0.95?'Not very effective. ':''}−${dmg} enemy HP.`;
-  if(e.hp<=0){run.cleared[f.k]=true;if(!run.defeated.includes(e.name))run.defeated.push(e.name);const xp=e.reward+p.tal.CHA*5;addXp(active,xp);run.fight=null;run.msg=`🏆 Defeated ${e.name}! +${xp} XP.`;log(`⚔ Defeated ${e.name} (+${xp} XP).`);renderCamp();showEncounter(f.k);return;}
-  const em=matchupMod(enemyEls(e),petEls(active,p));
-  let edmg=Math.max(1,Math.round((e.atk||4)*em*(0.85+Math.random()*0.3)));
-  p.health=Math.max(0,p.health-edmg);
-  run.msg=msg+` ${e.name} hits back for ${edmg}.`;
+  const f=run.fight;if(!f)return;const p=prog[active],e=f.enemy,pel=ELEMENT[active];p.cd=p.cd||{};
+  const list=petMoves(p);const mv=(mi<0)?TACKLE:list[mi];
+  if(mv.name!=='Tackle'&&(p.cd[mv.name]||0)>0){toast(mv.name+' is on cooldown.');return;}
+  // damage
+  let eff=mv.power||0;
+  if(mv.name==='Phantom Chain'){f.chain=(f.lastMove===mv.name)?(f.chain+1):0;eff+=f.chain;}
+  const mu=matchup1(mv.el,e.element);
+  const mult=(f.nextMult||1)*(f.petMult||1);f.nextMult=1;
+  let dmg=eff>0?Math.max(1,Math.round(eff*(p.tal[mv.trait]||1)*mu*mult*(0.9+Math.random()*0.2))):0;
+  if(dmg)e.hp-=dmg;
+  let msg=`Used ${mv.name}.`+(eff>0?` ${mu>1?'Super effective! ':mu<1?'Not very effective. ':''}-${dmg} HP.`:'');
+  msg+=applyMoveStatus(mv,f,p,e);
+  // set cooldown + tick others
+  if(mv.name!=='Tackle')p.cd[mv.name]=mv.cd;
+  for(const n in p.cd){if(n!==mv.name&&p.cd[n]>0)p.cd[n]--;}
+  f.lastMove=mv.name;
+  // foe damage-over-time
+  if(f.foeDot&&f.foeDot.length){let tot=0;f.foeDot=f.foeDot.filter(d=>{e.hp-=d.val;tot+=d.val;d.turns--;return d.turns>0;});if(tot)msg+=` (DoT ${tot})`;}
+  if(e.hp<=0){winFight(f,e,p);return;}
+  // enemy turn
+  if(f.foeSkip>0){f.foeSkip--;msg+=` ${e.name} is unable to act.`;}
+  else if(f.foeSkipChance>0&&Math.random()<f.foeSkipChance){msg+=` ${e.name} hesitates.`;}
+  else{let em=matchup1(e.element,pel);let edmg=Math.round((e.atk||4)*em*(0.9+Math.random()*0.2));
+    if(f.incTurns>0){edmg=Math.round(edmg*(1-f.incPct));f.incTurns--;}
+    if(f.foeRedTurns>0){edmg=Math.round(edmg*(1-f.foeRedPct));f.foeRedTurns--;}
+    edmg=Math.max(0,edmg);
+    if(f.guardian&&p.health-edmg<=0){p.health=50;f.guardian=false;msg+=` ${e.name} hits ${edmg} — Guardian's Oath saves at 50%!`;}
+    else{p.health=Math.max(0,p.health-edmg);msg+=` ${e.name} hits for ${edmg}.`;}
+  }
+  if(f.healNext>0){p.health=Math.min(100,p.health+f.healNext);msg+=` (+${f.healNext} HP)`;f.healNext=0;}
+  if(f.petMultTurns>0){f.petMultTurns--;if(f.petMultTurns===0)f.petMult=1;}
+  run.msg=msg;
   if(p.health<=0){campFail();return;}
   renderCamp();showEncounter(f.k);
 }
@@ -953,9 +1125,11 @@ function campChoose(k,i){
 function campExit(k){
   const sq=camp.squares[k];run.done=true;const xp=sq.reward||100;addXp(active,xp);
   completions[camp.id]=completions[camp.id]||{};completions[camp.id][active]=true;
+  prog[active].campDone=prog[active].campDone||{};prog[active].campDone[camp.id]=true; // toward Ultimate form
   prog[active].run=null; // completed — removed from "in progress"; replayable from the list
-  run.msg=`✨ You escaped ${camp.name}! +${xp} XP. ${nameOf(active)} completed this campaign!`;
-  log(`🏁 ${nameOf(active)} completed: ${camp.name} (+${xp} XP).`);
+  const ult=petAllCampaignsDone(prog[active])?` ${nameOf(active)} has unlocked its ULTIMATE form!`:'';
+  run.msg=`✨ You escaped ${camp.name}! +${xp} XP. ${nameOf(active)} completed this campaign!${ult}`;
+  log(`🏁 ${nameOf(active)} completed: ${camp.name} (+${xp} XP).${ult}`);
   renderCamp();showEncounter(k);
 }
 function campFail(){
@@ -976,7 +1150,7 @@ function applyCampaign(){
 /* ===== VISUAL CAMPAIGN EDITOR (admin) ===== */
 let edCampIdx=0, edSel=null;
 const SQ_TYPES=[['','— empty / wall —'],['move','Path'],['talk','Talk'],['fight','Fight'],['item','Item'],['choice','Choice'],['exit','Exit (goal)']];
-const ELS=['Fire','Nature','Water','Light','Dark'];
+const ELS=['Fire','Nature','Water','Light','Shadow'];
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 function curEdCamp(){return CAMPAIGNS[edCampIdx];}
 function curSq(){return curEdCamp().squares[edSel];}
@@ -1016,7 +1190,7 @@ function edRenderForm(){
     if(sq.type==='talk')h+=`<label>Dialogue</label><textarea rows="2" oninput="edSet('text',this.value)">${esc(sq.text)}</textarea>`;
     if(sq.type==='item')h+=`<label>Item name</label><input value="${esc(sq.item)}" oninput="edSet('item',this.value)"><div class="two"><div><label>XP</label><input type="number" value="${sq.xp||0}" oninput="edSetNum('xp',this.value)"></div><div><label>Heal</label><input type="number" value="${sq.heal||0}" oninput="edSetNum('heal',this.value)"></div></div>`;
     if(sq.type==='exit')h+=`<label>Reward XP</label><input type="number" value="${sq.reward||0}" oninput="edSetNum('reward',this.value)">`;
-    if(sq.type==='fight'){const e=sq.enemy||{};h+=`<label>Enemy name</label><input value="${esc(e.name)}" oninput="edEnemy('name',this.value)"><div class="two"><div><label>Element</label><select onchange="edEnemy('element',this.value)">${ELS.map(x=>`<option ${e.element===x?'selected':''}>${x}</option>`).join('')}</select></div><div><label>2nd element</label><select onchange="edEnemy('element2',this.value)"><option value="">none</option>${ELS.map(x=>`<option ${e.element2===x?'selected':''}>${x}</option>`).join('')}</select></div></div><div class="two"><div><label>HP</label><input type="number" value="${e.hp||20}" oninput="edEnemyNum('hp',this.value)"></div><div><label>ATK</label><input type="number" value="${e.atk||5}" oninput="edEnemyNum('atk',this.value)"></div><div><label>Reward</label><input type="number" value="${e.reward||60}" oninput="edEnemyNum('reward',this.value)"></div></div>`;}
+    if(sq.type==='fight'){const e=sq.enemy||{};h+=`<label>Enemy name</label><input value="${esc(e.name)}" oninput="edEnemy('name',this.value)"><label>Element</label><select onchange="edEnemy('element',this.value)">${ELS.map(x=>`<option ${e.element===x?'selected':''}>${x}</option>`).join('')}</select><div class="two"><div><label>HP</label><input type="number" value="${e.hp||20}" oninput="edEnemyNum('hp',this.value)"></div><div><label>ATK</label><input type="number" value="${e.atk||5}" oninput="edEnemyNum('atk',this.value)"></div><div><label>Reward</label><input type="number" value="${e.reward||60}" oninput="edEnemyNum('reward',this.value)"></div></div><label>Item dropped on defeat (optional)</label><input value="${esc(e.loot)}" oninput="edEnemy('loot',this.value)" placeholder="e.g. Iron Key">`;}
     if(sq.type==='choice'){const o=sq.options||[{},{}];h+=`<label>Prompt</label><input value="${esc(sq.prompt)}" oninput="edSet('prompt',this.value)">`;[0,1].forEach(i=>{const op=o[i]||{};h+=`<div style="border-top:1px solid #25304a;margin-top:6px;padding-top:2px"><label>Option ${i+1} label</label><input value="${esc(op.label)}" oninput="edOpt(${i},'label',this.value)"><div class="two"><div><label>XP</label><input type="number" value="${op.xp||0}" oninput="edOptNum(${i},'xp',this.value)"></div><div><label>Dmg</label><input type="number" value="${op.dmg||0}" oninput="edOptNum(${i},'dmg',this.value)"></div><div><label>Heal</label><input type="number" value="${op.heal||0}" oninput="edOptNum(${i},'heal',this.value)"></div></div><label>Result text</label><input value="${esc(op.text)}" oninput="edOpt(${i},'text',this.value)"></div>`;});}
     const rq=sq.req||{};
     h+=`<div style="border-top:1px solid #25304a;margin-top:8px;padding-top:2px"><label>Requirement to enter this tile</label><select onchange="edReq('kind',this.value)"><option value="" ${!rq.kind?'selected':''}>None (always open)</option><option value="item" ${rq.kind==='item'?'selected':''}>Must hold an item</option><option value="defeat" ${rq.kind==='defeat'?'selected':''}>Must have defeated a creature</option></select>`;
@@ -1052,11 +1226,12 @@ function artRefresh(){renderArtRows();renderPicker();renderGallery();if(active)u
 
 /* ===== DEV / PREVIEW ===== */
 function setLevel(L){const p=prog[active];p.xp=xpForLevel(L);p.level=L;p.alive=true;}
-function jumpStage(i){if(!active){toast('Pick a creature first.');return;}setLevel(STAGE_MIN[i]);log(`Demo: jumped to stage ${i+1} (Lv ${STAGE_MIN[i]}).`);updateAll();renderGallery();}
+function jumpStage(i){if(!active){toast('Pick a creature first.');return;}setLevel(STAGE_MIN[i]);log(`Demo: jumped to ${STAGE_LBL[i]} (Lv ${STAGE_MIN[i]}).`);updateAll();renderGallery();}
+function devUlt(){if(!active){toast('Pick a creature first.');return;}setLevel(MAX_LEVEL);CAMPAIGNS.forEach(c=>{prog[active].campDone[c.id]=true;});log('Demo: unlocked Ultimate form.');updateAll();renderGallery();}
 function setClassDemo(c){if(!active){toast('Pick a creature first.');return;}prog[active].cls=c||null;log(c?('Class set: '+c):'Class cleared');updateAll();renderGallery();}
 function syncClsSel(){const sel=document.getElementById('clsSel');if(active)sel.value=prog[active].cls||'';}
-function renderJump(){const r=document.getElementById('jumpRow');r.innerHTML='';for(let i=0;i<7;i++){const b=document.createElement('button');b.className='btn ghost sm';b.style.flex='1';b.style.minWidth='34px';b.textContent='S'+(i+1);b.onclick=()=>jumpStage(i);r.appendChild(b);}}
-function renderClsSel(){const sel=document.getElementById('clsSel');sel.innerHTML='<option value="">— no class —</option>'+CLASSES.map(c=>`<option value="${c[0]}">${c[0]}</option>`).join('');}
+function renderJump(){const r=document.getElementById('jumpRow');r.innerHTML='';for(let i=0;i<STAGE_MIN.length;i++){const b=document.createElement('button');b.className='btn ghost sm';b.style.flex='1';b.style.minWidth='30px';b.textContent='L'+STAGE_MIN[i];b.onclick=()=>jumpStage(i);r.appendChild(b);}const u=document.createElement('button');u.className='btn ghost sm';u.style.flex='1';u.style.minWidth='30px';u.textContent='★Ult';u.onclick=devUlt;r.appendChild(u);}
+function renderClsSel(){const sel=document.getElementById('clsSel');sel.innerHTML='<option value="">— no class —</option>'+CLASSES.map(c=>`<option value="${c}">${c}</option>`).join('');}
 function renderGallery(){const el=document.getElementById('gallery');if(!active){el.innerHTML='<span style="color:var(--muted);font-size:11px">Pick a creature to preview its 7 forms.</span>';return;}let h='';for(let s=0;s<7;s++){h+=`<div class="gthumb"><div class="gart">${art(active,s,100,prog[active].cls)}</div><span>${s<6?STAGE_LBL[s]:'Ultimate'}</span></div>`;}el.innerHTML=h;}
 function devXp(){if(!active){toast('Pick a creature first.');return;}const g=addXp(active,5000);log(`Demo: +5000 XP → Lv ${prog[active].level}.`);if(sActive){if(g>0)document.getElementById('focusLvlUp').style.display='block';renderSession();}else{updateAll();renderGallery();if(g>0)openProgression();}}
 function devHeal(){if(!active){toast('Pick a creature first.');return;}prog[active].health=100;log('Demo: '+nameOf(active)+' fully healed.');updateAll();if(document.getElementById('v-adv').classList.contains('active'))renderCamp();if(document.getElementById('v-focus').classList.contains('active'))renderSession();}

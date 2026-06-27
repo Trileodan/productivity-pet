@@ -150,6 +150,14 @@
   .logo .ico{font-size:22px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.45))}
   .logo .txt{font-size:19px;font-weight:800;letter-spacing:.3px;line-height:1;background:linear-gradient(90deg,#5fd3a8,#7aa2ff);-webkit-background-clip:text;background-clip:text;color:transparent}
   .logo .txt b{background:linear-gradient(90deg,#ffd166,#ff9e4d);-webkit-background-clip:text;background-clip:text;color:transparent}
+  /* pet history (graveyard) */
+  .histhead{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 4px;text-align:center}
+  .histempty{font-size:11px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.5}
+  .histrow{background:#15243b;border:1px solid #25405f;border-radius:9px;padding:6px 9px;margin:4px 0;font-size:11.5px}
+  .histrow .hn{font-weight:700}
+  .histrow .hc{color:var(--accent2);margin-left:5px}
+  .histrow .hl{color:var(--gold);float:right}
+  .histrow .hd{color:var(--muted);font-size:10px;margin-top:2px}
   /* Phone / installed-app layout: fill the screen, drop the desktop chrome */
   @media (max-width:760px){
     body{padding:0;display:block}
@@ -180,11 +188,11 @@
           <div class="logo"><span class="ico">🥚</span><span class="txt">Productivity <b>Pets</b></span></div>
           <p class="title-sm center">Choose a companion</p>
           <div class="picker" id="picker"></div>
-          <div class="creature" id="pickPrev"></div>
-          <div class="name" id="pickName">Sprout</div>
-          <div class="stagelbl" id="pickDesc">Grows into a mighty Oak</div>
-          <button class="btn primary" style="margin-top:auto" onclick="beginWith()">Hatch &amp; Begin</button>
-          <div class="center" style="font-size:10px;color:var(--muted);margin-top:6px">Each creature keeps its own progress. A fresh or fallen creature starts at Level 1.</div>
+          <div class="creature" id="pickPrev" style="margin:2px auto 0"></div>
+          <div class="name" id="pickName">Nature Egg</div>
+          <div class="stagelbl" id="pickDesc"></div>
+          <button class="btn primary" style="margin-top:6px" onclick="beginWith()">Hatch &amp; Begin</button>
+          <div id="pickHistory"></div>
         </div>
 
         <!-- HOME -->
@@ -342,6 +350,7 @@ const TALENT_FULL={STR:'Strength',DEX:'Dexterity',INT:'Intelligence',WIS:'Wisdom
 const CLASSES=[['Wizard','Fire'],['Druid','Nature'],['Bard','Water'],['Thief','Dark'],['Paladin','Light']]; // class -> secondary element
 const CLASS_ELEMENT={Wizard:'Fire',Druid:'Nature',Bard:'Water',Thief:'Dark',Paladin:'Light'};
 const EL_EMOJI={Fire:'🔥',Nature:'🌱',Water:'💧',Dark:'🌑',Light:'✨',Neutral:'⚔️'};
+const EL_COLOR={Fire:'#ff8a3a',Nature:'#5fd38a',Water:'#7aa2ff',Dark:'#b69cff',Light:'#ffd166',Neutral:'#eef2f9'};
 const CLASS_EMOJI={Wizard:'🔮',Druid:'🍃',Bard:'🎵',Thief:'🗡️',Paladin:'🛡️'};
 const SPECIES=[
   {key:'sprout',name:'Sprout',eggName:'Nature Egg',final:'Mighty Oak',egg:'#7ddca0',desc:'Grows into a mighty Oak'},
@@ -435,6 +444,7 @@ let active=null, pickSel=0, pendingHatch=null;
 let budget=120, tokens=0, sessionMins=30, durIdx=2, budgetIdx=1;
 let camp=null, run=null, completions={}; // completions[campId] = { speciesKey: true }
 let artOverride={}; // speciesKey -> uploaded image data URL (replaces the SVG sprite)
+let history={};     // speciesKey -> [ {name, cls, level, cause} ] of fallen pets
 
 /* session state */
 let sActive=false,sTimer=null,secs=0,total=1800,gained=0,focusedSecs=0,phoneUsed=0,phoneUp=false,sessionType='train';
@@ -558,6 +568,16 @@ function renderPickPrev(){
   document.getElementById('pickPrev').innerHTML=egg?eggSVG(s):art(s.key,st,pr.health,pr.cls);
   document.getElementById('pickName').textContent=egg?s.eggName:nameOf(s.key);
   document.getElementById('pickDesc').textContent=egg?(!pr.alive?'Fallen — re-hatches at Level 1':''):(`${s.name} · Lv ${pr.level} · ${st>=6?('✦ '+s.final):STAGE_LBL[st]} · ${ELEMENT[s.key]}`);
+  renderHistory(s.key);
+}
+const LS_HIST='fc_history_v1';
+function saveHistory(){try{localStorage.setItem(LS_HIST,JSON.stringify(history));}catch(e){}}
+function loadHistory(){try{const s=localStorage.getItem(LS_HIST);if(s)history=JSON.parse(s)||{};}catch(e){}}
+function recordDeath(cause){const k=active;if(!k)return;const p=prog[k];history[k]=history[k]||[];history[k].unshift({name:nameOf(k),cls:p.cls||null,level:p.level,cause:cause||'Training accident'});if(history[k].length>15)history[k].length=15;saveHistory();}
+function renderHistory(k){
+  const el=document.getElementById('pickHistory');const list=history[k]||[];
+  if(!list.length){el.innerHTML=`<div class="histempty">No fallen ${ELEMENT[k]} pets yet.<br>Hatch one and make it a legend.</div>`;return;}
+  el.innerHTML=`<div class="histhead">Previous ${ELEMENT[k]} pets</div>`+list.slice(0,5).map(h=>`<div class="histrow"><span class="hn">${h.name}</span><span class="hc">${h.cls||'No class'}</span><span class="hl">Lv ${h.level}</span><div class="hd">☠ ${h.cause}</div></div>`).join('');
 }
 function beginWith(){
   const s=SPECIES[pickSel];
@@ -666,7 +686,7 @@ function reconcileAway(sec){
   log(`📱 Away ${sec}s while the app was closed.`);
   if(newOver>0){const dmg=Math.min(p.health,DRAIN_PER_SEC*newOver);p.health=Math.max(0,p.health-dmg);log(`⚠ Over allowance — ${nameOf(active)} lost ${dmg} HP.`);notify(nameOf(active)+' lost health','You were away past your allowance.');}
   renderSession();
-  if(p.health<=0)onDeath();
+  if(p.health<=0)onDeath('Training accident');
 }
 function tick(){
   if(!sActive)return;
@@ -680,7 +700,7 @@ function tick(){
       document.getElementById('focusMsg').textContent='⚠ Over allowance — health draining!';
       document.getElementById('focusArt').classList.add('shake');
     } else {document.getElementById('focusMsg').textContent='⏸ Paused — allowance ticking…';}
-    if(p.health<=0){onDeath();return;}
+    if(p.health<=0){onDeath('Training accident');return;}
     renderSession();return;
   }
   document.getElementById('focusArt').classList.remove('shake');
@@ -702,7 +722,9 @@ function tick(){
 function renderSession(){
   const p=prog[active],info=levelInfo(p.xp);
   const m=Math.floor(secs/60),s=secs%60;
-  document.getElementById('timer').textContent=`${m}:${String(s).padStart(2,'0')}`;
+  const tEl=document.getElementById('timer'),col=EL_COLOR[ELEMENT[active]]||'#eef2f9';
+  tEl.textContent=`${m}:${String(s).padStart(2,'0')}`;
+  tEl.style.color=col;tEl.style.textShadow=`0 0 18px ${col}66`;tEl.style.fontSize='50px';
   document.getElementById('focusArt').innerHTML=art(active,stageForLevel(p.level),p.health,p.cls);
   document.getElementById('focusXp').style.width=Math.min(100,info.into/info.need*100)+'%';
   document.getElementById('focusXpName').textContent=`Lv ${p.level} → ${p.level+1}`;
@@ -719,8 +741,8 @@ function renderLock(){
   document.getElementById('lockArt').innerHTML=art(active,stageForLevel(p.level),p.health,p.cls);
   document.getElementById('lockTitle').textContent=(sessionType==='mind'?'🧘 Mindfulness':'🎓 Training');
   document.getElementById('lockState').textContent=`${nameOf(active)} · Lv ${p.level} · ❤ ${Math.round(p.health)}%`;
-  const m=Math.floor(secs/60),s=secs%60;document.getElementById('lockTime').textContent=`${m}:${String(s).padStart(2,'0')}`;
-  document.getElementById('lockBar').style.width=Math.min(100,(1-secs/total)*100)+'%';
+  const m=Math.floor(secs/60),s=secs%60;const lt=document.getElementById('lockTime'),lc=EL_COLOR[ELEMENT[active]]||'#5fd3a8';lt.textContent=`${m}:${String(s).padStart(2,'0')}`;lt.style.color=lc;lt.style.fontSize='30px';lt.style.textShadow=`0 0 16px ${lc}66`;
+  document.getElementById('lockBar').style.width=Math.min(100,(1-secs/total)*100)+'%';document.getElementById('lockBar').style.background=lc;
 }
 function finishSession(complete){
   clearInterval(sTimer);sTimer=null;sActive=false;setFocusAnim();
@@ -728,12 +750,15 @@ function finishSession(complete){
   log(complete&&p.health>0?`✅ Session complete! +${gained} XP.`:`Session ended. Kept +${gained} XP.`);
   go('home');updateAll();
 }
-function onDeath(){
+function onDeath(cause){
+  cause=cause||'Training accident';
   clearInterval(sTimer);sTimer=null;sActive=false;run=null;
+  recordDeath(cause); // log this pet into its element's history before resetting
+  const fallenName=nameOf(active);
   if(active)prog[active].run=null; // current campaign run resets on death
   prog[active].alive=false;
-  log(`💀 ${nameOf(active)} has fallen — current campaign reset, back to Level 1.`);
-  showModal(`<h3>💀 ${nameOf(active)} has fallen</h3><p style="color:var(--muted);font-size:12.5px;text-align:center;margin:0 0 12px">Progress is lost. Choose a companion to begin again at Level 1.</p><button class="btn primary" onclick="hideModal();go('pick');renderPicker()">Choose a new creature</button>`);
+  log(`💀 ${fallenName} has fallen — ${cause}.`);
+  showModal(`<h3>💀 ${fallenName} has fallen</h3><p style="color:var(--muted);font-size:12.5px;text-align:center;margin:0 0 12px">${cause}. Their tale is recorded. Choose a companion to begin again at Level 1.</p><button class="btn primary" onclick="hideModal();go('pick');renderPicker()">Choose a new creature</button>`);
 }
 
 /* ===== PROGRESSION ===== */
@@ -924,9 +949,10 @@ function campExit(k){
   renderCamp();showEncounter(k);
 }
 function campFail(){
+  const cause='Adventuring in '+(camp?camp.name:'a campaign');
   if(active)prog[active].run=null; run=null;
   log('💀 Campaign failed — your creature has fallen.');
-  onDeath();
+  onDeath(cause);
 }
 function applyCampaign(){
   try{const o=JSON.parse(document.getElementById('campJson').value);
@@ -1025,12 +1051,12 @@ function renderGallery(){const el=document.getElementById('gallery');if(!active)
 function devXp(){if(!active){toast('Pick a creature first.');return;}const g=addXp(active,5000);log(`Demo: +5000 XP → Lv ${prog[active].level}.`);if(sActive){if(g>0)document.getElementById('focusLvlUp').style.display='block';renderSession();}else{updateAll();renderGallery();if(g>0)openProgression();}}
 function devHeal(){if(!active){toast('Pick a creature first.');return;}prog[active].health=100;log('Demo: '+nameOf(active)+' fully healed.');updateAll();if(document.getElementById('v-adv').classList.contains('active'))renderCamp();if(document.getElementById('v-focus').classList.contains('active'))renderSession();}
 function devTok(){tokens+=3;log('Demo: +3 movement tokens.');updateAll();if(document.getElementById('v-adv').classList.contains('active'))renderCamp();}
-function devHurt(){if(!active)return;const p=prog[active];p.health=Math.max(0,p.health-40);log('Demo: -40 health.');if(p.health<=0){onDeath();}else{updateAll();if(document.getElementById('v-adv').classList.contains('active'))renderCamp();}}
+function devHurt(){if(!active)return;const p=prog[active];p.health=Math.max(0,p.health-40);log('Demo: -40 health.');if(p.health<=0){onDeath('Training accident');}else{updateAll();if(document.getElementById('v-adv').classList.contains('active'))renderCamp();}}
 
 /* ===== INIT ===== */
 renderPicker();renderDurBox();renderBudgetBox();renderJump();renderClsSel();renderGallery();
 attachSwipe('durStep',cycleDur);attachSwipe('budStep',cycleBudget);
-loadCampaigns();renderArtRows();edInit();
+loadCampaigns();loadHistory();renderArtRows();edInit();renderPickPrev();
 document.addEventListener('visibilitychange',onVisibility);
 // Self-heal: remove any previously-registered service worker + caches (they were causing stale/blank loads).
 if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});}

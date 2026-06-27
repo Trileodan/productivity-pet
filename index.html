@@ -231,8 +231,8 @@
           <div class="barlbl"><span>❤ Health</span><span id="focusHpL">100%</span></div>
           <div class="bar ph"><i id="focusPh"></i></div>
           <div class="barlbl"><span>📱 Phone time used</span><span id="focusPhL">0s / 0s</span></div>
-          <button class="btn danger" id="phUpBtn" onclick="setPhone(true)">📱 Pick up phone / open app</button>
-          <button class="btn ghost sm" id="phDownBtn" onclick="setPhone(false)" style="display:none">⬇ Put phone down / reopen app</button>
+          <button class="btn danger" id="phUpBtn" onclick="setPhone(true)">📱 Open another app (uses phone time)</button>
+          <button class="btn ghost sm" id="phDownBtn" onclick="setPhone(false)" style="display:none">↩ Back to Productivity Pets</button>
           <button class="btn ghost sm" onclick="go('lock');renderLock()">🔒 Lock phone (show widget)</button>
           <div class="center" id="focusHint" style="font-size:10px;color:var(--muted);margin-top:6px"></div>
         </div>
@@ -670,21 +670,31 @@ function setFocusAnim(){
 }
 /* Auto-detect leaving the app (switch apps / lock screen / background) without tapping a button. */
 let hiddenAt=0;
+// When the page is hidden: if the user was "in another app" (phoneUp) it's phone time;
+// otherwise we treat it as a locked screen and keep the session running (credited on return).
 function onVisibility(){
   if(!sActive)return;
-  if(document.hidden){hiddenAt=Date.now();if(!phoneUp)setPhone(true);}
-  else{
-    if(hiddenAt){reconcileAway(Math.round((Date.now()-hiddenAt)/1000));hiddenAt=0;}
-    setPhone(false);
-  }
+  if(document.hidden){hiddenAt=Date.now();}
+  else if(hiddenAt){const sec=Math.round((Date.now()-hiddenAt)/1000);hiddenAt=0;if(phoneUp)reconcilePhone(sec);else reconcileLock(sec);}
 }
-function reconcileAway(sec){
+function reconcileLock(sec){ // screen was locked — session continued in the "background"
+  if(sec<=0||!sActive)return;const p=prog[active];
+  const s=Math.min(sec,secs),before=focusedSecs,lvB=p.level;
+  secs-=s;focusedSecs+=s;
+  if(sessionType==='mind')p.health=Math.min(100,p.health+0.05*s);else{addXp(active,s);gained+=s;}
+  const tk=Math.floor(focusedSecs/TOKEN_SECS)-Math.floor(before/TOKEN_SECS);if(tk>0)tokens+=tk;
+  if(p.level>lvB)document.getElementById('focusLvlUp').style.display='block';
+  log(`🔒 Locked ${sec}s — ${sessionType==='mind'?'kept healing':'kept training (+'+s+' XP)'}.`);
+  renderSession();
+  if(secs<=0)finishSession(true);
+}
+function reconcilePhone(sec){ // time spent in another app counts as phone time
   if(sec<=0||!sActive)return;const p=prog[active];
   const overBefore=Math.max(0,phoneUsed-budget);
   phoneUsed+=sec;
   const newOver=Math.max(0,phoneUsed-budget)-overBefore;
-  log(`📱 Away ${sec}s while the app was closed.`);
-  if(newOver>0){const dmg=Math.min(p.health,DRAIN_PER_SEC*newOver);p.health=Math.max(0,p.health-dmg);log(`⚠ Over allowance — ${nameOf(active)} lost ${dmg} HP.`);notify(nameOf(active)+' lost health','You were away past your allowance.');}
+  log(`📱 ${sec}s in another app — counts as phone time.`);
+  if(newOver>0){const dmg=Math.min(p.health,DRAIN_PER_SEC*newOver);p.health=Math.max(0,p.health-dmg);log(`⚠ Over allowance — ${nameOf(active)} lost ${dmg} HP.`);notify(nameOf(active)+' lost health','You were in another app past your allowance.');}
   renderSession();
   if(p.health<=0)onDeath('Training accident');
 }

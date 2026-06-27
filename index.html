@@ -511,12 +511,68 @@ function moveCatalog(sk,p){const out=[];(ELEMENT_MOVES[ELEMENT[sk]]||[]).forEach
 function pendingMoves(sk,p){return moveCatalog(sk,p).filter(m=>m.lvl<=p.level&&!p.mvProc[m.id]);}
 function movePower(p,m){return (m.power||0)*(p.tal[m.trait]||1);}
 function tv(str,p){let t=0,re=/\((\d+)\s*\*\s*(STR|DEX|INT|WIS|CHA)\)/g,m;while(m=re.exec(str)){t+=parseInt(m[1])*(p.tal[m[2]]||1);}return t;}
+/* ===== STRUCTURED EFFECTS =====
+   Each effect is an object {t:type, ...params}. The engine runs these directly (no text parsing).
+   The move's "status" string is now just the player-facing description. */
+const FX_TYPES={
+  heal:        {label:'Heal pet now',         params:[['mult','num',2],['trait','trait','WIS']]},
+  healNext:    {label:'Heal pet next turn',   params:[['mult','num',1],['trait','trait','WIS']]},
+  dot:         {label:'Damage foe over time', params:[['mult','num',1],['trait','trait','STR'],['turns','num',1],['ifFoeEl','elOpt','']]},
+  foeSkip:     {label:'Foe skips turn(s)',    params:[['turns','num',1]]},
+  foeSkipChance:{label:'Foe chance to skip',  params:[['pct','num',20],['turns','num',99]]},
+  petBuffNext: {label:'Next attack multiplier',params:[['mult','num',2.5]]},
+  petBuff:     {label:'Pet damage buff (turns)',params:[['pct','num',25],['turns','num',99]]},
+  incReduce:   {label:'Reduce incoming dmg',  params:[['pct','num',25],['turns','num',2]]},
+  foeWeaken:   {label:"Weaken foe's attacks", params:[['pct','num',30],['turns','num',99]]},
+  runDefeat:   {label:'Chance to defeat foe', params:[['pct','num',20]]},
+  execute:     {label:'Execute if foe HP% <', params:[['pctHp','num',20]]},
+  reflect:     {label:'Reflect foe attack',   params:[]},
+  guardian:    {label:'Survive lethal at 50%',params:[]},
+  safeFlee:    {label:'Enable safe flee',     params:[]},
+  ignoreResist:{label:'Ignore resist penalty',params:[]},
+  chain:       {label:'Power +1 if repeated', params:[]}
+};
+/* Effects keyed by move name (so editing them affects equipped & future moves live). */
+const MOVE_FX={
+  "Creeping Vines":[{t:'foeWeaken',pct:25,turns:1}],"Pollen Paralysis":[{t:'foeSkip',turns:1}],"Spring Bloom":[{t:'heal',mult:2,trait:'WIS'}],"Fairy Pollen":[{t:'foeSkip',turns:2}],"Wild Awakening":[{t:'heal',mult:3,trait:'INT'}],"Power Drain":[{t:'foeWeaken',pct:30,turns:99}],
+  "Scorch":[{t:'dot',mult:1,trait:'STR',turns:1}],"Warm Up":[{t:'petBuffNext',mult:2.5}],"Magma Surge":[{t:'foeSkip',turns:1}],"Phoenix Flame":[{t:'heal',mult:2,trait:'WIS'}],"Melting Point":[{t:'dot',mult:1,trait:'INT',turns:1}],"Fire Breath":[{t:'dot',mult:1,trait:'STR',turns:2}],"Solar Flare":[{t:'foeWeaken',pct:30,turns:99}],
+  "Soak":[{t:'foeSkip',turns:1}],"Healing Rain":[{t:'heal',mult:2,trait:'WIS'}],"Whirlpool":[{t:'dot',mult:1,trait:'INT',turns:2}],"Riptide":[{t:'ignoreResist'}],"Tsunami":[{t:'runDefeat',pct:20}],"Maelstrom":[{t:'dot',mult:1,trait:'INT',turns:99}],
+  "Dark Whisper":[{t:'foeSkip',turns:1}],"Gloom Bolt":[{t:'foeWeaken',pct:25,turns:1}],"Soul Drain":[{t:'heal',mult:1,trait:'INT'}],"Abyssal Maw":[{t:'dot',mult:2,trait:'STR',turns:3}],"Fear Touch":[{t:'foeSkipChance',pct:20,turns:99}],"Nightmare":[{t:'runDefeat',pct:20}],"Eclipse":[{t:'heal',mult:2,trait:'INT'}],
+  "Flash":[{t:'foeSkipChance',pct:50,turns:1}],"Luminous Shield":[{t:'incReduce',pct:15,turns:99}],"Holy Spark":[{t:'dot',mult:1,trait:'CHA',turns:1,ifFoeEl:'Shadow'}],"Healing Light":[{t:'heal',mult:2,trait:'WIS'},{t:'healNext',mult:1,trait:'WIS'}],"Seraphic Wings":[{t:'petBuff',pct:25,turns:99}],"Blinding Light":[{t:'foeSkipChance',pct:20,turns:99}],"Divine Judgement":[{t:'heal',mult:3,trait:'WIS'}],
+  "Smoke Bomb":[{t:'safeFlee'}],"Poison Blade":[{t:'dot',mult:1,trait:'DEX',turns:99}],"Disorient Strike":[{t:'foeSkip',turns:1}],"Marked Target":[{t:'petBuffNext',mult:3}],"Phantom Chain":[{t:'chain'}],"Assassinate":[{t:'execute',pctHp:20}],
+  "Mana Surge":[{t:'petBuffNext',mult:2.5}],"Frost Sigil":[{t:'foeSkip',turns:1}],"Arcane Barrier":[{t:'incReduce',pct:50,turns:4}],"Mana Drain":[{t:'heal',mult:2,trait:'WIS'}],"Gravity Well":[{t:'foeSkipChance',pct:25,turns:99}],"Reality Fracture":[{t:'reflect'}],
+  "Divine Shield":[{t:'incReduce',pct:25,turns:2}],"Lay on Hands":[{t:'heal',mult:2,trait:'WIS'}],"Judgement Mark":[{t:'petBuffNext',mult:2.5}],"Smite":[{t:'dot',mult:1,trait:'STR',turns:1}],"Consecration":[{t:'dot',mult:1,trait:'WIS',turns:99}],"Divine Smite":[{t:'dot',mult:2,trait:'STR',turns:1}],"Guardian's Oath":[{t:'guardian'}],
+  "Inspiring Tune":[{t:'petBuffNext',mult:2.5}],"Dissonant Note":[{t:'dot',mult:1,trait:'DEX',turns:1}],"Haste Rhythm":[{t:'safeFlee'}],"Lullaby":[{t:'foeSkip',turns:1}],"Battle Anthem":[{t:'petBuffNext',mult:3}],"Discordance":[{t:'dot',mult:2,trait:'DEX',turns:1}],"Crescendo":[{t:'petBuffNext',mult:3.5}],"Symphony of Fate":[{t:'foeSkip',turns:1}],
+  "Barkskin":[{t:'incReduce',pct:25,turns:2}],"Entangle":[{t:'foeSkip',turns:1}],"Shape Shift":[{t:'petBuff',pct:50,turns:4}],"Thorn Field":[{t:'dot',mult:1,trait:'INT',turns:99}],"Spirit of the Wild":[{t:'petBuff',pct:75,turns:99}],"Nature's Revival":[{t:'heal',mult:4,trait:'WIS'}]
+};
+function fxOf(mv){return MOVE_FX[mv.name]||[];}
+function hasFx(mv,t){return fxOf(mv).some(x=>x.t===t);}
+function runEffects(mv,f,p,e){
+  let msg='';
+  fxOf(mv).forEach(x=>{switch(x.t){
+    case 'heal':{const v=(x.mult||0)*(p.tal[x.trait]||1);p.health=Math.min(100,p.health+v);if(v)msg+=` +${v} HP.`;break;}
+    case 'healNext':f.healNext=(f.healNext||0)+(x.mult||0)*(p.tal[x.trait]||1);break;
+    case 'dot':{if(x.ifFoeEl&&e.element!==x.ifFoeEl)break;const v=(x.mult||0)*(p.tal[x.trait]||1);if(v){f.foeDot.push({val:v,turns:x.turns||1});msg+=` ${e.name} afflicted (${v}/turn).`;}break;}
+    case 'foeSkip':f.foeSkip+=(x.turns||1);msg+=` ${e.name} stunned.`;break;
+    case 'foeSkipChance':if((x.turns||1)<=1){if(Math.random()<(x.pct||0)/100){f.foeSkip+=1;msg+=` ${e.name} dazzled!`;}}else{f.foeSkipChance=(x.pct||0)/100;msg+=` ${e.name} may falter.`;}break;
+    case 'petBuffNext':f.nextMult=(x.mult||1);msg+=` Next ×${f.nextMult}.`;break;
+    case 'petBuff':f.petMult=(f.petMult||1)*(1+(x.pct||0)/100);f.petMultTurns=x.turns||99;msg+=' Damage up.';break;
+    case 'incReduce':f.incPct=(x.pct||0)/100;f.incTurns=x.turns||99;msg+=' Defence up.';break;
+    case 'foeWeaken':f.foeRedPct=(x.pct||0)/100;f.foeRedTurns=x.turns||99;msg+=` ${e.name} weakened.`;break;
+    case 'runDefeat':if(Math.random()<(x.pct||0)/100){e.hp=0;msg+=` ${e.name} flees — defeated!`;}break;
+    case 'execute':if(e.hp<(x.pctHp||0)/100*e.max){e.hp=0;msg+=' Execution!';}break;
+    case 'reflect':e.hp-=(e.atk||0);f.foeSkip+=1;msg+=` Reflected ${e.atk}.`;break;
+    case 'guardian':f.guardian=true;break;
+    case 'safeFlee':f.fleeSafe=true;msg+=' Safe to flee.';break;
+  }});
+  return msg;
+}
 /* ----- editable move tables (admin) ----- */
-const MOVE_DEFAULTS=JSON.parse(JSON.stringify({E:ELEMENT_MOVES,C:CLASS_MOVES}));
+const MOVE_DEFAULTS=JSON.parse(JSON.stringify({E:ELEMENT_MOVES,C:CLASS_MOVES,FX:MOVE_FX}));
 const MV_ELS=['None','Fire','Nature','Water','Shadow','Light'];
 const LS_MOVES='fc_moves_v1';
-function applyMoveData(o){if(o&&o.E){for(const k in ELEMENT_MOVES)delete ELEMENT_MOVES[k];for(const k in o.E)ELEMENT_MOVES[k]=o.E[k];}if(o&&o.C){for(const k in CLASS_MOVES)delete CLASS_MOVES[k];for(const k in o.C)CLASS_MOVES[k]=o.C[k];}}
-function saveMoves(){try{localStorage.setItem(LS_MOVES,JSON.stringify({E:ELEMENT_MOVES,C:CLASS_MOVES}));toast('Moves saved ✔');log('💾 Saved move tables to this device.');}catch(e){toast('Save failed: '+e.message);}}
+function applyMoveData(o){if(o&&o.E){for(const k in ELEMENT_MOVES)delete ELEMENT_MOVES[k];for(const k in o.E)ELEMENT_MOVES[k]=o.E[k];}if(o&&o.C){for(const k in CLASS_MOVES)delete CLASS_MOVES[k];for(const k in o.C)CLASS_MOVES[k]=o.C[k];}if(o&&o.FX){for(const k in MOVE_FX)delete MOVE_FX[k];for(const k in o.FX)MOVE_FX[k]=o.FX[k];}}
+function saveMoves(){try{localStorage.setItem(LS_MOVES,JSON.stringify({E:ELEMENT_MOVES,C:CLASS_MOVES,FX:MOVE_FX}));toast('Moves saved ✔');log('💾 Saved move tables to this device.');}catch(e){toast('Save failed: '+e.message);}}
 function loadMoves(){try{const s=localStorage.getItem(LS_MOVES);if(s)applyMoveData(JSON.parse(s));}catch(e){}}
 function resetMoves(){applyMoveData(JSON.parse(JSON.stringify(MOVE_DEFAULTS)));try{localStorage.removeItem(LS_MOVES);}catch(e){}toast('Moves reset to defaults.');mvEdRender();}
 function mvEdInit(){const sel=document.getElementById('mvEdSel');if(!sel)return;let o='';['Nature','Fire','Water','Shadow','Light'].forEach(k=>o+=`<option value="E|${k}">${k} (element)</option>`);CLASSES.forEach(c=>o+=`<option value="C|${c}">${c} (class)</option>`);sel.innerHTML=o;mvEdRender();}
@@ -527,10 +583,30 @@ function mvEdRender(){
     <div class="two"><div><label>Level</label><input type="number" value="${a[0]}" oninput="mvEdSet(${i},0,this.value,1)"></div><div style="flex:2"><label>Name</label><input value="${esc(a[1])}" oninput="mvEdSet(${i},1,this.value)"></div></div>
     <div class="two"><div><label>Trait</label><select onchange="mvEdSet(${i},2,this.value)">${TALENTS.map(t=>`<option ${a[2]===t?'selected':''}>${t}</option>`).join('')}</select></div><div><label>Power</label><input type="number" value="${a[3]}" oninput="mvEdSet(${i},3,this.value,1)"></div></div>
     <div class="two"><div><label>Element</label><select onchange="mvEdSet(${i},4,this.value)">${MV_ELS.map(x=>`<option ${a[4]===x?'selected':''}>${x}</option>`).join('')}</select></div><div><label>Cooldown</label><input type="number" value="${a[5]}" oninput="mvEdSet(${i},5,this.value,1)"></div></div>
-    <label>Condition / status effect</label><textarea rows="2" oninput="mvEdSet(${i},6,this.value)">${esc(a[6])}</textarea>
+    <label>Description (shown to players)</label><textarea rows="2" oninput="mvEdSet(${i},6,this.value)">${esc(a[6])}</textarea>
+    <label>Effects (what it actually does)</label>${fxEditor(i,a[1])}
+    <button class="btn ghost sm" style="margin-top:4px" onclick="mvFxAdd(${i})">+ add effect</button>
     <button class="btn danger" style="margin-top:6px" onclick="mvEdDel(${i})">🗑 Delete move</button></div>`).join('');
 }
-function mvEdSet(i,fi,val,num){const a=mvEdGroup();if(!a||!a[i])return;a[i][fi]=num?(parseInt(val)||0):val;}
+function fxEditor(i,name){
+  const fx=MOVE_FX[name]||[];
+  if(!fx.length)return '<div style="font-size:10px;color:var(--muted)">No effects — pure damage move.</div>';
+  return fx.map((x,j)=>{
+    const spec=FX_TYPES[x.t]||{params:[]};
+    let pf=spec.params.map(pr=>{const key=pr[0],kind=pr[1],val=(x[key]!=null?x[key]:'');
+      if(kind==='trait')return `<div><label>${key}</label><select onchange="mvFxSet(${i},${j},'${key}',this.value)">${TALENTS.map(t=>`<option ${val===t?'selected':''}>${t}</option>`).join('')}</select></div>`;
+      if(kind==='elOpt')return `<div><label>${key}</label><select onchange="mvFxSet(${i},${j},'${key}',this.value)"><option value="">any</option>${['Fire','Nature','Water','Shadow','Light'].map(t=>`<option ${val===t?'selected':''}>${t}</option>`).join('')}</select></div>`;
+      return `<div><label>${key}</label><input type="number" step="any" value="${val}" oninput="mvFxSet(${i},${j},'${key}',this.value,1)"></div>`;
+    }).join('');
+    return `<div style="border-top:1px solid #25304a;margin-top:4px;padding-top:4px"><div class="two"><div style="flex:2"><select onchange="mvFxType(${i},${j},this.value)">${Object.keys(FX_TYPES).map(t=>`<option value="${t}" ${x.t===t?'selected':''}>${FX_TYPES[t].label}</option>`).join('')}</select></div><div><button class="btn danger" style="margin:0;padding:6px" onclick="mvFxDel(${i},${j})">✕</button></div></div>${pf?`<div class="two">${pf}</div>`:''}</div>`;
+  }).join('');
+}
+function mvFxArr(i){const a=mvEdGroup();if(!a||!a[i])return null;const n=a[i][1];MOVE_FX[n]=MOVE_FX[n]||[];return MOVE_FX[n];}
+function mvFxAdd(i){const arr=mvFxArr(i);if(!arr)return;arr.push({t:'heal',mult:2,trait:'WIS'});mvEdRender();}
+function mvFxDel(i,j){const arr=mvFxArr(i);if(!arr)return;arr.splice(j,1);mvEdRender();}
+function mvFxType(i,j,t){const arr=mvFxArr(i);if(!arr||!arr[j])return;const o={t:t};(FX_TYPES[t].params||[]).forEach(pr=>o[pr[0]]=pr[2]);arr[j]=o;mvEdRender();}
+function mvFxSet(i,j,key,val,num){const arr=mvFxArr(i);if(!arr||!arr[j])return;arr[j][key]=num?(parseFloat(val)||0):val;}
+function mvEdSet(i,fi,val,num){const a=mvEdGroup();if(!a||!a[i])return;if(fi===1){const old=a[i][1];if(MOVE_FX[old]&&val&&val!==old){MOVE_FX[val]=MOVE_FX[old];delete MOVE_FX[old];}}a[i][fi]=num?(parseInt(val)||0):val;if(fi===1)mvEdRender();}
 function mvEdAdd(){const a=mvEdGroup();if(!a)return;a.push([1,"New Move","STR",1,"None",0,"None"]);mvEdRender();}
 function mvEdDel(i){const a=mvEdGroup();if(!a)return;a.splice(i,1);mvEdRender();}
 
@@ -1110,13 +1186,13 @@ function useMove(mi){
   if(mv.name!=='Tackle'&&(p.cd[mv.name]||0)>0){toast(mv.name+' is on cooldown.');return;}
   // damage
   let eff=mv.power||0;
-  if(mv.name==='Phantom Chain'){f.chain=(f.lastMove===mv.name)?(f.chain+1):0;eff+=f.chain;}
-  const mu=matchup1(mv.el,e.element);
+  if(hasFx(mv,'chain')){f.chain=(f.lastMove===mv.name)?(f.chain+1):0;eff+=f.chain;}
+  let mu=matchup1(mv.el,e.element);if(hasFx(mv,'ignoreResist')&&mu<1)mu=1;
   const mult=(f.nextMult||1)*(f.petMult||1);f.nextMult=1;
   let dmg=eff>0?Math.max(1,Math.round(eff*(p.tal[mv.trait]||1)*mu*mult*(0.9+Math.random()*0.2))):0;
   if(dmg)e.hp-=dmg;
   let msg=`Used ${mv.name}.`+(eff>0?` ${mu>1?'Super effective! ':mu<1?'Not very effective. ':''}-${dmg} HP.`:'');
-  msg+=applyMoveStatus(mv,f,p,e);
+  msg+=runEffects(mv,f,p,e);
   // set cooldown + tick others
   if(mv.name!=='Tackle')p.cd[mv.name]=mv.cd;
   for(const n in p.cd){if(n!==mv.name&&p.cd[n]>0)p.cd[n]--;}

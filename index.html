@@ -307,6 +307,10 @@
           <button class="btn ghost sm" style="flex:1" onclick="devHeal()">💚 Full heal</button>
           <button class="btn ghost sm" style="flex:1" onclick="devHurt()">Hurt ❤</button>
         </div>
+        <div class="row">
+          <button class="btn ghost sm" id="tmBtn" style="flex:1" onclick="devTestMode()">🧪 Test mode: ON (lock ignored)</button>
+        </div>
+        <div style="font-size:9.5px;color:var(--muted);margin-top:3px">While ON, locking/sleeping your phone or switching apps won't count as phone time — the session just pauses and resumes. Turn OFF to test the real penalty.</div>
       </div>
       <div class="card">
         <h3>Preview forms &amp; class</h3>
@@ -697,6 +701,7 @@ let history={};     // speciesKey -> [ {name, cls, level, cause} ] of fallen pet
 
 /* session state */
 let sActive=false,sTimer=null,secs=0,total=1800,gained=0,focusedSecs=0,phoneUsed=0,phoneUp=false,sessionType='train';
+let testMode=true; // TEST MODE: while on, locking/sleeping/app-switching is ignored (no phone-time penalty). Turn off to test the real behaviour.
 
 /* ===== HELPERS ===== */
 // Gentle curve: cost to go Lv L -> L+1. Early levels are minutes; Lv100 is a long-haul goal (~390h focus).
@@ -935,6 +940,7 @@ function setFocusAnim(){
 let hiddenAt=0;
 function onVisibility(){
   if(!sActive)return;
+  if(testMode)return; // test mode: ignore lock/sleep/app-switch — the session simply pauses while hidden and resumes on return
   if(document.hidden){hiddenAt=Date.now();if(!phoneUp)setPhone(true);}
   else{if(hiddenAt){reconcilePhone(Math.round((Date.now()-hiddenAt)/1000));hiddenAt=0;}setPhone(false);}
 }
@@ -1435,6 +1441,7 @@ function devXp(){if(!active){toast('Pick a creature first.');return;}const g=add
 function devHeal(){if(!active){toast('Pick a creature first.');return;}prog[active].health=100;log('Demo: '+nameOf(active)+' fully healed.');updateAll();if(document.getElementById('v-adv').classList.contains('active'))renderCamp();if(document.getElementById('v-focus').classList.contains('active'))renderSession();}
 function devTok(){tokens+=3;log('Demo: +3 movement tokens.');updateAll();if(document.getElementById('v-adv').classList.contains('active'))renderCamp();}
 function devHurt(){if(!active)return;const p=prog[active];p.health=Math.max(0,p.health-40);log('Demo: -40 health.');if(p.health<=0){onDeath('Training accident');}else{updateAll();if(document.getElementById('v-adv').classList.contains('active'))renderCamp();}}
+function devTestMode(){testMode=!testMode;const b=document.getElementById('tmBtn');if(b)b.textContent=testMode?'🧪 Test mode: ON (lock ignored)':'🧪 Test mode: OFF (lock counts)';if(!testMode&&sActive&&document.hidden){hiddenAt=Date.now();}toast(testMode?'Test mode ON — locking won’t count as phone time.':'Test mode OFF — locking now counts (real behaviour).');log(testMode?'🧪 Test mode ON.':'🧪 Test mode OFF.');}
 
 /* ===== INIT ===== */
 renderPicker();renderDurBox();renderBudgetBox();renderJump();renderClsSel();renderGallery();

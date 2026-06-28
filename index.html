@@ -143,6 +143,13 @@
   .movebtn .mp{font-size:8.5px;color:var(--muted)}
   .movebtn.up{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
   .movebtn.down{border-color:#5a3a44;opacity:.8}
+  /* foe battle view */
+  .foewrap{width:150px;height:150px;margin:4px auto 0;display:flex;align-items:center;justify-content:center}
+  .foename{text-align:center;font-size:12px;color:#ffb27a;font-weight:600;margin-top:2px}
+  @keyframes foeLunge{0%,100%{transform:translateY(0) scale(1)}40%{transform:translateY(14px) scale(1.12) rotate(-3deg)}55%{transform:translateY(14px) scale(1.12)}}
+  .foeAtk{animation:foeLunge .45s ease-in-out}
+  .foefloat{animation:foeIdle 3s ease-in-out infinite}
+  @keyframes foeIdle{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
   /* polish */
   .btn.primary,.btn.gold{box-shadow:0 4px 12px rgba(0,0,0,.25)}
   .bar{height:11px}
@@ -314,9 +321,17 @@
           <button class="btn ghost sm" style="width:auto;margin:0" onclick="edNewCampaign()">+ New</button>
         </div>
         <input id="edName" oninput="edRename(this.value)" placeholder="Campaign name" style="width:100%;margin-top:6px;background:#0d1626;color:var(--ink);border:1px solid #25304a;border-radius:8px;padding:7px;font-size:12px">
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-top:6px">Win by <select id="edWinType" onchange="edWinType(this.value)" style="width:auto"><option value="exit">Reaching an Exit tile</option><option value="item">Obtaining an item</option><option value="defeat">Defeating a creature</option></select></div>
+        <input id="edWinVal" oninput="edWinVal(this.value)" placeholder="required item / creature name" style="display:none;width:100%;margin-top:4px;background:#0d1626;color:var(--ink);border:1px solid #25304a;border-radius:8px;padding:6px;font-size:11px">
+        <div class="row" style="gap:6px;margin-top:6px">
+          <select id="edMapSel" onchange="edSelectMap(this.value)" style="flex:1"></select>
+          <button class="btn ghost sm" style="width:auto;margin:0" onclick="edAddMap()" title="Add a map">+ Map</button>
+          <button class="btn ghost sm" style="width:auto;margin:0" onclick="edRenameMap()" title="Rename map">✎</button>
+          <button class="btn ghost sm" style="width:auto;margin:0" onclick="edDelMap()" title="Delete map">🗑</button>
+        </div>
         <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-top:6px">Grid <select id="edCols" onchange="edResize()" style="width:auto"></select> × <select id="edRows" onchange="edResize()" style="width:auto"></select></div>
         <div id="edGrid" class="edgrid"></div>
-        <div style="font-size:10px;color:var(--muted);text-align:center">★ = start tile · click any tile to edit</div>
+        <div style="font-size:10px;color:var(--muted);text-align:center">★ = start tile · 🚪 = door · click any tile to edit</div>
         <div id="edForm"></div>
         <div class="row" style="gap:6px;margin-top:8px"><button class="btn primary sm" style="flex:2;margin:0" onclick="saveCampaigns()">💾 Save campaigns</button><button class="btn ghost sm" style="flex:1;margin:0" onclick="resetCampaigns()">Reset</button></div>
         <div style="font-size:9.5px;color:var(--muted);margin-top:3px">Saves to this device so your maps persist between sessions.</div>
@@ -375,7 +390,7 @@ const MAX_LEVEL=50;
 const BASE_NEED=150, NEED_GROWTH=1.5, DRAIN_PER_SEC=10, TOKEN_SECS=300;
 const BUDGETS=[['Strict','0m',0],['Light','2m',120],['Relaxed','5m',300],['Chill','10m',600]];
 const DURATIONS=[5,15,30,45,60];
-const ICON={move:'·',fight:'⚔',item:'◆',choice:'❓',talk:'💬',exit:'🚪'};
+const ICON={move:'·',fight:'⚔',item:'◆',choice:'❓',talk:'💬',door:'🚪',exit:'🏁'};
 /* Pets are ALWAYS single-element (their species). Each MOVE has its own element, used for damage matchups. */
 const ELEMENT={sprout:'Nature',ember:'Fire',pebble:'Water',umbra:'Shadow',angel:'Light'};
 const BEATS={Fire:'Nature',Nature:'Water',Water:'Fire',Light:'Shadow',Shadow:'Light'};
@@ -616,10 +631,10 @@ const CAMPAIGNS=[
     squares:{
       "2,4":{type:"talk",desc:"The mouth of the Whispering Caverns yawns before you.",text:"Cold air drifts out. Move north (▲) to enter."},
       "2,3":{type:"move",desc:"A junction lit by pale fungus. Passages branch east and west."},
-      "1,3":{type:"fight",desc:"A goblin sentry springs from the dark!",enemy:{name:"Goblin Sentry",element:"Fire",hp:16,atk:4,reward:60}},
+      "1,3":{type:"fight",desc:"A goblin sentry springs from the dark!",enemy:{name:"Goblin Sentry",element:"Fire",hp:16,atk:4,reward:60,sprite:"goblin"}},
       "3,3":{type:"item",desc:"A rusted chest rests in an alcove.",item:"Rusted Dagger",xp:30},
       "2,2":{type:"choice",desc:"Glowing runes pulse on the wall.",prompt:"The runes whisper. Do you answer?",options:[{label:"Speak the truth",xp:50,text:"The runes flare warmly. +50 XP."},{label:"Stay silent",dmg:15,text:"Shadows lash out! -15 HP."}]},
-      "2,1":{type:"fight",desc:"A skeletal warden bars the northern arch.",enemy:{name:"Skeletal Warden",element:"Shadow",hp:34,atk:7,reward:120}},
+      "2,1":{type:"fight",desc:"A skeletal warden bars the northern arch.",enemy:{name:"Skeletal Warden",element:"Shadow",hp:34,atk:7,reward:120,sprite:"skeleton"}},
       "1,1":{type:"item",desc:"A clear spring bubbles from the rock.",item:"Spring Water",xp:20,heal:40},
       "3,1":{type:"talk",desc:"A hooded merchant nods slowly.",text:"'Few reach this depth. Take my blessing, traveler.'"},
       "2,0":{type:"exit",desc:"A shimmering portal marks the way out!",reward:200}
@@ -628,24 +643,45 @@ const CAMPAIGNS=[
   { id:"temple", name:"The Sunken Temple", cols:5, rows:5, start:{x:0,y:4},
     squares:{
       "0,4":{type:"talk",desc:"Water laps at the steps of a drowned temple.",text:"Move north (▲) into the flooded halls."},
-      "0,3":{type:"fight",desc:"A temple naga coils from the water!",enemy:{name:"Temple Naga",element:"Water",hp:22,atk:5,reward:75}},
+      "0,3":{type:"fight",desc:"A temple naga coils from the water!",enemy:{name:"Temple Naga",element:"Water",hp:22,atk:5,reward:75,sprite:"naga"}},
       "0,2":{type:"item",desc:"A mossy urn holds a glowing draught.",item:"Tidal Elixir",xp:25,heal:35},
       "1,2":{type:"choice",desc:"Two idols watch a fork in the hall.",prompt:"Bow to the sun idol or the moon idol?",options:[{label:"Sun idol",xp:60,text:"Warm light fills you. +60 XP."},{label:"Moon idol",heal:30,item:"Lunar Charm",text:"A cool charm appears. +30 HP."}]},
       "2,2":{type:"talk",desc:"Ancient murals depict a great guardian ahead."},
-      "2,1":{type:"fight",desc:"The Temple Guardian awakens!",enemy:{name:"Temple Guardian",element:"Light",hp:44,atk:8,reward:150}},
+      "2,1":{type:"fight",desc:"The Temple Guardian awakens!",enemy:{name:"Temple Guardian",element:"Light",hp:44,atk:8,reward:150,sprite:"giant"}},
       "2,0":{type:"exit",desc:"Sunlight pours through a collapsed ceiling — escape!",reward:230}
     }
   },
   { id:"frost", name:"Frostpeak Pass", cols:5, rows:5, start:{x:2,y:4},
     squares:{
       "2,4":{type:"talk",desc:"A bitter wind howls down the icy pass.",text:"Climb north (▲) into the white."},
-      "2,3":{type:"fight",desc:"An ice wolf lunges from a snowdrift!",enemy:{name:"Ice Wolf",element:"Water",hp:20,atk:5,reward:70}},
+      "2,3":{type:"fight",desc:"An ice wolf lunges from a snowdrift!",enemy:{name:"Ice Wolf",element:"Water",hp:20,atk:5,reward:70,sprite:"goblin"}},
       "2,2":{type:"item",desc:"A frozen pack holds trail rations.",item:"Warm Rations",xp:25,heal:30},
       "1,2":{type:"talk",desc:"A frostbitten shrine murmurs encouragement.",text:"'Endure, and the summit is yours.'"},
       "3,2":{type:"choice",desc:"A crevasse blocks the way — risk a leap?",prompt:"Leap the crevasse?",options:[{label:"Leap it (risky)",xp:80,text:"You clear it! +80 XP."},{label:"Climb around",dmg:10,text:"The long way numbs you. -10 HP."}]},
-      "2,1":{type:"fight",desc:"A frost giant blocks the summit!",enemy:{name:"Frost Giant",element:"Water",hp:52,atk:10,reward:165}},
+      "2,1":{type:"fight",desc:"A frost giant blocks the summit!",enemy:{name:"Frost Giant",element:"Water",hp:52,atk:10,reward:165,sprite:"giant"}},
       "2,0":{type:"exit",desc:"You crest the peak — the pass is yours!",reward:250}
     }
+  },
+  { id:"bandits", name:"The Bandit King's Trail", win:{type:"defeat",value:"Bandit King",reward:320}, start:{map:"camp",x:1,y:2},
+    maps:[
+      { id:"camp", name:"Bandit Camp", cols:3, rows:3,
+        squares:{
+          "1,2":{type:"talk",desc:"Smoke rises from a bandit camp.",text:"Sneak north (▲) through the tents — there's a tunnel ahead."},
+          "1,1":{type:"fight",desc:"A bandit lookout spots you!",enemy:{name:"Bandit Lookout",element:"Shadow",hp:18,atk:5,reward:65,sprite:"bandit"}},
+          "0,1":{type:"item",desc:"A dropped pack holds supplies.",item:"Smoke Bomb",xp:25,heal:20},
+          "1,0":{type:"door",desc:"A guarded tunnel descends into the hillside.",to:{map:"cave",x:0,y:2},label:"Enter the hideout"}
+        }
+      },
+      { id:"cave", name:"Hideout Cave", cols:4, rows:3,
+        squares:{
+          "0,2":{type:"talk",desc:"Torchlight flickers on damp stone.",text:"The King's chamber lies east (▶). Defeat him to win."},
+          "1,2":{type:"fight",desc:"A bone guard rattles awake!",enemy:{name:"Bone Guard",element:"Shadow",hp:30,atk:7,reward:110,sprite:"skeleton"}},
+          "2,2":{type:"item",desc:"A weapons rack holds a fine blade.",item:"Keen Blade",xp:30},
+          "3,2":{type:"fight",desc:"The Bandit King rises from his throne!",enemy:{name:"Bandit King",element:"Fire",hp:60,atk:11,reward:200,sprite:"bandit",loot:"King's Signet"}},
+          "0,1":{type:"door",desc:"The tunnel back to the surface.",to:{map:"camp",x:1,y:0},label:"Back to camp"}
+        }
+      }
+    ]
   }
 ];
 
@@ -1032,7 +1068,17 @@ function passMove(id){const p=prog[active];p.mvProc[id]=true;log('Passed on a ne
 /* ===== ADVENTURE (campaign library + maze) ===== */
 function campById(id){return CAMPAIGNS.find(c=>c.id===id);}
 function completedCount(id){return Object.keys(completions[id]||{}).length;}
-function newRun(c){const r={campId:c.id,pos:{x:c.start.x,y:c.start.y},prev:{x:c.start.x,y:c.start.y},seen:{},cleared:{},inv:[],defeated:[],done:false,msg:'',fight:null};r.seen[key(r.pos.x,r.pos.y)]=true;return r;}
+function normCamp(c){ // upgrade single-grid campaigns to the multi-map shape
+  if(!c.maps){c.maps=[{id:'m0',name:'Map 1',cols:c.cols||5,rows:c.rows||5,squares:c.squares||{}}];delete c.cols;delete c.rows;delete c.squares;}
+  if(!c.start||c.start.map==null){const s=c.start||{x:0,y:0};c.start={map:c.maps[0].id,x:s.x||0,y:s.y||0};}
+  if(!c.win)c.win={type:'exit'};
+  return c;
+}
+function mapById(id){return (camp.maps||[]).find(m=>m.id===id);}
+function curMap(){return mapById(run.mapId)||(camp.maps&&camp.maps[0]);}
+function mapName(id){const m=(camp.maps||[]).find(x=>x.id===id);return m?m.name:id;}
+function qk(k){return run.mapId+'|'+k;} // map-qualified key for seen/cleared
+function newRun(c){const st=c.start;const r={campId:c.id,mapId:st.map,pos:{x:st.x,y:st.y},prev:{x:st.x,y:st.y},seen:{},cleared:{},inv:[],defeated:[],done:false,msg:'',fight:null};r.seen[st.map+'|'+key(st.x,st.y)]=true;return r;}
 function openCampList(){
   if(!active){toast('Pick a creature first.');return;}
   renderCampList();go('camplist');
@@ -1052,7 +1098,7 @@ function renderCampList(){
   document.getElementById('campListBox').innerHTML=h;
 }
 function playCampaign(id){
-  const c=campById(id);if(!c)return;camp=c;
+  const c=campById(id);if(!c)return;normCamp(c);camp=c;
   const cur=prog[active].run;
   if(cur&&cur.campId===id&&!cur.done){run=cur;}            // resume
   else{run=newRun(c);prog[active].run=run;}                // fresh
@@ -1067,62 +1113,81 @@ function reqMet(req){
 }
 function move(dx,dy){
   if(!run||run.done)return;
-  const here=camp.squares[key(run.pos.x,run.pos.y)];
-  if(here&&!run.cleared[key(run.pos.x,run.pos.y)]){
+  const M=curMap(),hk=key(run.pos.x,run.pos.y),here=M.squares[hk];
+  if(here&&!run.cleared[qk(hk)]){
     if(here.type==='fight'){toast('Defeat the '+here.enemy.name+' or run first.');return;}
     if(here.type==='choice'){toast('Make your choice first.');return;}
   }
   const nx=run.pos.x+dx, ny=run.pos.y+dy, k=key(nx,ny);
-  if(nx<0||ny<0||nx>=camp.cols||ny>=camp.rows||!camp.squares[k]){toast('A wall blocks the way.');return;}
-  const tgt=camp.squares[k];
+  if(nx<0||ny<0||nx>=M.cols||ny>=M.rows||!M.squares[k]){toast('A wall blocks the way.');return;}
+  const tgt=M.squares[k];
   if(tgt.req&&!reqMet(tgt.req)){toast(tgt.req.msg||'You cannot enter here yet.');return;}
   if(tokens<1){toast('No movement tokens — focus to earn more.');return;}
-  // an item requirement consumes the item when used
   if(tgt.req&&tgt.req.kind==='item'){const i=run.inv.indexOf(tgt.req.value);if(i>=0){run.inv.splice(i,1);log(`🔑 Used ${tgt.req.value}.`);}}
-  tokens--;run.prev={x:run.pos.x,y:run.pos.y};run.pos={x:nx,y:ny};run.seen[k]=true;run.msg='';
+  tokens--;run.prev={x:run.pos.x,y:run.pos.y};run.pos={x:nx,y:ny};run.seen[qk(k)]=true;run.msg='';
   renderCamp();showEncounter(k);
 }
 function renderCamp(){
   if(!camp||!run)return;
-  document.getElementById('campName').textContent=camp.name;
+  document.getElementById('campName').textContent=camp.name+(camp.maps.length>1?(' · '+(curMap().name||'')):'');
   document.getElementById('campTokens').textContent=tokens;
   const p=prog[active];
   document.getElementById('campHero').innerHTML=art(active,petStage(p),p.health,p.cls);
   document.getElementById('campHp').style.width=p.health+'%';
   document.getElementById('campHpL').textContent=Math.round(p.health)+'%';
-  let g='';
-  for(let y=0;y<camp.rows;y++)for(let x=0;x<camp.cols;x++){
-    const k=key(x,y),sq=camp.squares[k];let c='gcell',ic='';
-    if(!sq)c+=' wall';
-    else if(!run.seen[k]){c+=' fog';ic='·';}
-    else{ic=ICON[sq.type]||'·';if(run.cleared[k]&&['fight','item','choice'].includes(sq.type))ic='·';}
-    if(run.pos.x===x&&run.pos.y===y){c+=' here';ic='◉';}
-    g+=`<div class="${c}">${ic}</div>`;
+  const grid=document.getElementById('campGrid');
+  if(run.fight){ // battle view: show the foe instead of the maze
+    grid.style.gridTemplateColumns='1fr';
+    grid.innerHTML=`<div class="foewrap ${run._foeHit?'foeAtk':'foefloat'}">${foeSprite(run.fight.enemy)}</div>`;
+    run._foeHit=false;
+  } else {
+    const M=curMap();let g='';
+    for(let y=0;y<M.rows;y++)for(let x=0;x<M.cols;x++){
+      const k=key(x,y),sq=M.squares[k];let c='gcell',ic='';
+      if(!sq)c+=' wall';
+      else if(!run.seen[qk(k)]){c+=' fog';ic='·';}
+      else{ic=ICON[sq.type]||'·';if(run.cleared[qk(k)]&&['fight','item','choice'].includes(sq.type))ic='·';}
+      if(run.pos.x===x&&run.pos.y===y){c+=' here';ic='◉';}
+      g+=`<div class="${c}">${ic}</div>`;
+    }
+    grid.style.gridTemplateColumns=`repeat(${M.cols},1fr)`;grid.innerHTML=g;
   }
-  const grid=document.getElementById('campGrid');grid.style.gridTemplateColumns=`repeat(${camp.cols},1fr)`;grid.innerHTML=g;
   document.getElementById('campInv').textContent=run.inv.length?('🎒 '+run.inv.join(', ')):'🎒 (empty)';
 }
 function showEncounter(k){
-  const sq=camp.squares[k],panel=document.getElementById('campPanel');
+  const M=curMap(),sq=M.squares[k],panel=document.getElementById('campPanel');
   if(!sq){panel.innerHTML='';return;}
-  let html=`<div class="cdesc">${sq.desc}</div>`;
+  let html=`<div class="cdesc">${sq.desc||''}</div>`;
   if(run.done){panel.innerHTML=html+`<div class="cwin">✨ Campaign complete!</div>`+(run.msg?`<div class="cmsg">${run.msg}</div>`:'');return;}
-  if(sq.type==='fight'&&!run.cleared[k]){
+  if(sq.type==='fight'&&!run.cleared[qk(k)]){
     if(run.fight&&run.fight.k===k){panel.innerHTML=html+fightPanel(k);return;}
     const e=sq.enemy;
     html+=`<div class="cfoe">⚔ ${e.name} · ${e.element} · HP ${e.hp}${e.loot?' · drops '+e.loot:''}</div><div class="crow"><button class="btn gold sm" onclick="startFight('${k}')">Fight</button><button class="btn ghost sm" onclick="campFlee('${k}')">Run away</button></div>`;
-  } else if(sq.type==='item'&&!run.cleared[k]){
+  } else if(sq.type==='item'&&!run.cleared[qk(k)]){
     html+=`<button class="btn gold sm" onclick="campItem('${k}')">Pick up: ${sq.item}</button>`;
-  } else if(sq.type==='choice'&&!run.cleared[k]){
+  } else if(sq.type==='choice'&&!run.cleared[qk(k)]){
     html+=`<div class="cprompt">${sq.prompt}</div>`;sq.options.forEach((o,i)=>{html+=`<button class="btn ghost sm" onclick="campChoose('${k}',${i})">${o.label}</button>`;});
   } else if(sq.type==='talk'){
     html+=`<div class="ctalk">${sq.text||''}</div>`;
+  } else if(sq.type==='door'){
+    html+=`<button class="btn primary sm" onclick="campDoor('${k}')">${sq.label||('Enter '+mapName(sq.to&&sq.to.map))} →</button>`;
   } else if(sq.type==='exit'){
     html+=`<button class="btn primary sm" onclick="campExit('${k}')">Step through the portal ✨</button>`;
   }
   if(run.msg)html+=`<div class="cmsg">${run.msg}</div>`;
   panel.innerHTML=html;
 }
+function campDoor(k){const sq=curMap().squares[k];if(!sq.to){toast('This door leads nowhere yet.');return;}run.prev={x:run.pos.x,y:run.pos.y};run.mapId=sq.to.map;run.pos={x:sq.to.x,y:sq.to.y};run.seen[qk(key(run.pos.x,run.pos.y))]=true;run.msg='';log('🚪 Travelled to '+mapName(sq.to.map)+'.');renderCamp();showEncounter(key(run.pos.x,run.pos.y));}
+/* ===== FOE SPRITES ===== */
+const FOE_LIST=['skeleton','goblin','giant','naga','bandit'];
+const FOE_ART={
+  skeleton:()=>`<svg viewBox="0 0 100 100"><ellipse cx="50" cy="40" rx="22" ry="24" fill="#eef2f9"/><ellipse cx="50" cy="74" rx="16" ry="10" fill="#dfe6f0"/><rect x="42" y="58" width="16" height="18" fill="#eef2f9"/><path d="M38 70 h24 M38 74 h24 M38 78 h24" stroke="#9aa6c0" stroke-width="2"/><ellipse cx="42" cy="40" rx="6" ry="7" fill="#1a2233"/><ellipse cx="58" cy="40" rx="6" ry="7" fill="#1a2233"/><circle cx="42" cy="39" r="2" fill="#ff6b6b"/><circle cx="58" cy="39" r="2" fill="#ff6b6b"/><path d="M46 52 l4 5 4 -5z" fill="#1a2233"/><path d="M43 58 v6 M50 58 v8 M57 58 v6" stroke="#1a2233" stroke-width="2"/></svg>`,
+  goblin:()=>`<svg viewBox="0 0 100 100"><path d="M26 44 q-16 -6 -18 -22 q16 4 20 16z" fill="#5fae5f"/><path d="M74 44 q16 -6 18 -22 q-16 4 -20 16z" fill="#5fae5f"/><ellipse cx="50" cy="56" rx="26" ry="26" fill="#6cc46c"/><ellipse cx="50" cy="44" rx="22" ry="18" fill="#7ad07a"/><circle cx="42" cy="50" r="5" fill="#1a2233"/><circle cx="58" cy="50" r="5" fill="#1a2233"/><circle cx="43" cy="48.5" r="1.6" fill="#fff"/><circle cx="59" cy="48.5" r="1.6" fill="#fff"/><path d="M40 64 q10 8 20 0" stroke="#1a2233" stroke-width="2.5" fill="none"/><path d="M42 64 l3 4 3 -4 3 4 3 -4 3 4" fill="#fff"/><path d="M50 52 l-3 6 6 0z" fill="#3a7a3a"/></svg>`,
+  giant:()=>`<svg viewBox="0 0 100 100"><rect x="26" y="46" width="48" height="44" rx="10" fill="#9c7a52"/><ellipse cx="50" cy="36" rx="20" ry="20" fill="#b08a5e"/><rect x="14" y="50" width="14" height="30" rx="6" fill="#9c7a52"/><rect x="72" y="50" width="14" height="30" rx="6" fill="#9c7a52"/><circle cx="42" cy="34" r="4" fill="#1a2233"/><circle cx="58" cy="34" r="4" fill="#1a2233"/><path d="M40 46 q10 6 20 0" stroke="#5a3f24" stroke-width="3" fill="none"/><path d="M40 30 l8 3 M60 30 l-8 3" stroke="#5a3f24" stroke-width="2"/><rect x="40" y="44" width="20" height="4" fill="#7a5a34"/></svg>`,
+  naga:()=>`<svg viewBox="0 0 100 100"><path d="M30 90 q-8 -16 8 -22 q18 -6 8 -20" stroke="#3a9e7a" stroke-width="12" fill="none" stroke-linecap="round"/><ellipse cx="52" cy="40" rx="18" ry="20" fill="#4cc295"/><ellipse cx="52" cy="34" rx="14" ry="14" fill="#5fd3a8"/><path d="M40 22 q12 -10 24 0" fill="#3a9e7a"/><circle cx="46" cy="36" r="4" fill="#1a2233"/><circle cx="58" cy="36" r="4" fill="#1a2233"/><path d="M50 46 q4 4 0 8 M50 54 l-4 4 8 0z" stroke="#1a2233" stroke-width="1.5" fill="#ff6b6b"/><path d="M44 26 q8 -6 16 0" stroke="#2f7a5e" stroke-width="2" fill="none"/></svg>`,
+  bandit:()=>`<svg viewBox="0 0 100 100"><ellipse cx="50" cy="48" rx="22" ry="23" fill="#c9a37a"/><path d="M28 40 q22 -16 44 0 l0 -6 q-22 -12 -44 0z" fill="#7a3b3b"/><rect x="28" y="46" width="44" height="12" fill="#2a2f3a"/><circle cx="42" cy="52" r="3.5" fill="#fff"/><circle cx="58" cy="52" r="3.5" fill="#fff"/><circle cx="42" cy="52" r="1.8" fill="#1a2233"/><circle cx="58" cy="52" r="1.8" fill="#1a2233"/><path d="M42 66 q8 4 16 0" stroke="#5a3f24" stroke-width="2.5" fill="none"/><path d="M30 34 q20 -14 40 0" stroke="#5a2f2f" stroke-width="3" fill="none"/></svg>`
+};
+function foeSprite(e){return (FOE_ART[e&&e.sprite]||FOE_ART.goblin)();}
 function petMoves(p){return (p.moves&&p.moves.length?p.moves.slice():[]).concat([TACKLE]);} // 3 held + Tackle
 function fightPanel(k){
   const f=run.fight,p=prog[active],e=f.enemy,pel=ELEMENT[active];p.cd=p.cd||{};
@@ -1143,9 +1208,9 @@ function fightPanel(k){
   if(run.msg)h+=`<div class="cmsg">${run.msg}</div>`;
   return h;
 }
-function startFight(k){const e=camp.squares[k].enemy;run.fight={k:k,enemy:{name:e.name,element:e.element,atk:e.atk,reward:e.reward,loot:e.loot,hp:e.hp,max:e.hp},foeSkip:0,foeSkipChance:0,foeDot:[],nextMult:1,petMult:1,petMultTurns:0,incPct:0,incTurns:0,foeRedPct:0,foeRedTurns:0,healNext:0,guardian:false,fleeSafe:false,lastMove:'',chain:0};prog[active].cd=prog[active].cd||{};run.msg='';renderCamp();showEncounter(k);}
+function startFight(k){const e=curMap().squares[k].enemy;run.fight={k:k,enemy:{name:e.name,element:e.element,atk:e.atk,reward:e.reward,loot:e.loot,sprite:e.sprite,hp:e.hp,max:e.hp},foeSkip:0,foeSkipChance:0,foeDot:[],nextMult:1,petMult:1,petMultTurns:0,incPct:0,incTurns:0,foeRedPct:0,foeRedTurns:0,healNext:0,guardian:false,fleeSafe:false,lastMove:'',chain:0};prog[active].cd=prog[active].cd||{};run.msg='';renderCamp();showEncounter(k);}
 function campFlee(k){const p=prog[active];const safe=run.fight&&run.fight.fleeSafe;const dmg=safe?0:25;if(dmg)p.health=Math.max(0,p.health-dmg);run.fight=null;log(safe?'🏃 Slipped away safely.':'🏃 Fled the fight — lost '+dmg+' HP.');if(p.health<=0){run.msg='';campFail();return;}run.msg=safe?'You slipped away unharmed.':`You fled and took ${dmg} damage.`;run.pos={x:run.prev.x,y:run.prev.y};renderCamp();showEncounter(key(run.pos.x,run.pos.y));}
-function winFight(f,e,p){run.cleared[f.k]=true;if(!run.defeated.includes(e.name))run.defeated.push(e.name);p.slain=(p.slain||0)+1;const xp=e.reward+p.tal.CHA*5;addXp(active,xp);let lootMsg='';if(e.loot){run.inv.push(e.loot);lootMsg=` Dropped ${e.loot}!`;log(`🎁 ${e.name} dropped ${e.loot}.`);}run.fight=null;run.msg=`🏆 Defeated ${e.name}! +${xp} XP.${lootMsg}`;log(`⚔ Defeated ${e.name} (+${xp} XP).`);renderCamp();showEncounter(f.k);}
+function winFight(f,e,p){run.cleared[qk(f.k)]=true;if(!run.defeated.includes(e.name))run.defeated.push(e.name);p.slain=(p.slain||0)+1;const xp=e.reward+p.tal.CHA*5;addXp(active,xp);let lootMsg='';if(e.loot){run.inv.push(e.loot);lootMsg=` Dropped ${e.loot}!`;log(`🎁 ${e.name} dropped ${e.loot}.`);}const fk=f.k;run.fight=null;run.msg=`🏆 Defeated ${e.name}! +${xp} XP.${lootMsg}`;log(`⚔ Defeated ${e.name} (+${xp} XP).`);checkWin();renderCamp();showEncounter(fk);}
 function applyMoveStatus(mv,f,p,e){
   const s=mv.status;if(!s||s==='None')return '';const low=s.toLowerCase();
   // heals
@@ -1206,7 +1271,7 @@ function useMove(mi){
   else{let em=matchup1(e.element,pel);let edmg=Math.round((e.atk||4)*em*(0.9+Math.random()*0.2));
     if(f.incTurns>0){edmg=Math.round(edmg*(1-f.incPct));f.incTurns--;}
     if(f.foeRedTurns>0){edmg=Math.round(edmg*(1-f.foeRedPct));f.foeRedTurns--;}
-    edmg=Math.max(0,edmg);
+    edmg=Math.max(0,edmg);run._foeHit=true; // trigger foe attack animation
     if(f.guardian&&p.health-edmg<=0){p.health=50;f.guardian=false;msg+=` ${e.name} hits ${edmg} — Guardian's Oath saves at 50%!`;}
     else{p.health=Math.max(0,p.health-edmg);msg+=` ${e.name} hits for ${edmg}.`;}
   }
@@ -1217,26 +1282,37 @@ function useMove(mi){
   renderCamp();showEncounter(f.k);
 }
 function campItem(k){
-  const sq=camp.squares[k],p=prog[active];run.inv.push(sq.item);run.cleared[k]=true;
+  const sq=curMap().squares[k],p=prog[active];run.inv.push(sq.item);run.cleared[qk(k)]=true;
   const xp=sq.xp||0;if(xp)addXp(active,xp);if(sq.heal)p.health=Math.min(100,p.health+sq.heal);
   run.msg=`Picked up ${sq.item}.${xp?` +${xp} XP.`:''}${sq.heal?` +${sq.heal} HP.`:''}`;log(`Found ${sq.item}.`);
-  renderCamp();showEncounter(k);
+  checkWin();renderCamp();showEncounter(k);
 }
 function campChoose(k,i){
-  const sq=camp.squares[k],o=sq.options[i],p=prog[active];run.cleared[k]=true;
+  const sq=curMap().squares[k],o=sq.options[i],p=prog[active];run.cleared[qk(k)]=true;
   if(o.xp)addXp(active,o.xp);if(o.heal)p.health=Math.min(100,p.health+o.heal);if(o.item)run.inv.push(o.item);
   if(o.dmg){p.health=Math.max(0,p.health-o.dmg);if(p.health<=0){run.msg=o.text;campFail();return;}}
   run.msg=o.text||'';log(`Choice: ${o.label}.`);
-  renderCamp();showEncounter(k);
+  checkWin();renderCamp();showEncounter(k);
 }
-function campExit(k){
-  const sq=camp.squares[k];run.done=true;const xp=sq.reward||100;addXp(active,xp);
+function completeCampaign(xp,msg){
+  run.done=true;addXp(active,xp);
   completions[camp.id]=completions[camp.id]||{};completions[camp.id][active]=true;
   prog[active].campDone=prog[active].campDone||{};prog[active].campDone[camp.id]=true; // toward Ultimate form
   prog[active].run=null; // completed — removed from "in progress"; replayable from the list
   const ult=petAllCampaignsDone(prog[active])?` ${nameOf(active)} has unlocked its ULTIMATE form!`:'';
-  run.msg=`✨ You escaped ${camp.name}! +${xp} XP. ${nameOf(active)} completed this campaign!${ult}`;
+  run.msg=`✨ ${msg} +${xp} XP. ${nameOf(active)} completed this campaign!${ult}`;
   log(`🏁 ${nameOf(active)} completed: ${camp.name} (+${xp} XP).${ult}`);
+}
+function checkWin(){ // auto-complete when item/defeat goal met
+  if(!camp.win||run.done)return false;const w=camp.win;
+  if(w.type==='item'&&run.inv.includes(w.value)){completeCampaign(w.reward||180,'You obtained the '+w.value+'!');return true;}
+  if(w.type==='defeat'&&(run.defeated||[]).includes(w.value)){completeCampaign(w.reward||180,'You vanquished '+w.value+'!');return true;}
+  return false;
+}
+function campExit(k){
+  const sq=curMap().squares[k];
+  if(!camp.win||camp.win.type==='exit'){completeCampaign(sq.reward||100,'You escaped '+camp.name+'!');}
+  else{run.msg='The way out is sealed — you must '+(camp.win.type==='item'?('obtain the '+camp.win.value):('defeat '+camp.win.value))+' first.';}
   renderCamp();showEncounter(k);
 }
 function campFail(){
@@ -1247,39 +1323,48 @@ function campFail(){
 }
 function applyCampaign(){
   try{const o=JSON.parse(document.getElementById('campJson').value);
-    if(!Array.isArray(o)||!o.length||!o[0].squares||!o[0].id)throw new Error('expected an array of campaigns with id + squares');
-    CAMPAIGNS.length=0;o.forEach(c=>CAMPAIGNS.push(c));run=null;camp=null;edCampIdx=0;edSel=null;
+    if(!Array.isArray(o)||!o.length||!(o[0].squares||o[0].maps)||!o[0].id)throw new Error('expected an array of campaigns with id + squares/maps');
+    CAMPAIGNS.length=0;o.forEach(c=>CAMPAIGNS.push(normCamp(c)));run=null;camp=null;edCampIdx=0;edMapIdx=0;edSel=null;
     toast('Campaigns applied ✔');log('🛠 Loaded '+o.length+' campaign(s).');edInit();
     if(document.getElementById('v-camplist').classList.contains('active'))renderCampList();
   }catch(e){toast('Invalid JSON: '+e.message);}
 }
 
 /* ===== VISUAL CAMPAIGN EDITOR (admin) ===== */
-let edCampIdx=0, edSel=null;
-const SQ_TYPES=[['','— empty / wall —'],['move','Path'],['talk','Talk'],['fight','Fight'],['item','Item'],['choice','Choice'],['exit','Exit (goal)']];
+let edCampIdx=0, edSel=null, edMapIdx=0;
+const SQ_TYPES=[['','— empty / wall —'],['move','Path'],['talk','Talk'],['fight','Fight'],['item','Item'],['choice','Choice'],['door','Door (teleport)'],['exit','Exit (goal)']];
 const ELS=['Fire','Nature','Water','Light','Shadow'];
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
-function curEdCamp(){return CAMPAIGNS[edCampIdx];}
-function curSq(){return curEdCamp().squares[edSel];}
+function curEdCamp(){return normCamp(CAMPAIGNS[edCampIdx]);}
+function curEdMap(){const c=curEdCamp();if(edMapIdx>=c.maps.length)edMapIdx=0;return c.maps[edMapIdx];}
+function curSq(){return curEdMap().squares[edSel];}
 function edInit(){
+  CAMPAIGNS.forEach(normCamp);
   if(edCampIdx>=CAMPAIGNS.length)edCampIdx=0;
   const cset=document.getElementById('edCols'),rset=document.getElementById('edRows');
   let co='';for(let n=3;n<=7;n++)co+=`<option>${n}</option>`;cset.innerHTML=co;rset.innerHTML=co;
   edRefreshSelect();edRenderAll();
 }
-function edRefreshSelect(){const sel=document.getElementById('edCampSel');sel.innerHTML=CAMPAIGNS.map((c,i)=>`<option value="${i}">${c.name}</option>`).join('');sel.value=edCampIdx;}
-function edSelectCamp(i){edCampIdx=+i;edSel=null;edRenderAll();}
+function edRefreshSelect(){const sel=document.getElementById('edCampSel');sel.innerHTML=CAMPAIGNS.map((c,i)=>`<option value="${i}">${esc(c.name)}</option>`).join('');sel.value=edCampIdx;}
+function edRefreshMaps(){const c=curEdCamp(),sel=document.getElementById('edMapSel');if(!sel)return;sel.innerHTML=c.maps.map((m,i)=>`<option value="${i}">${esc(m.name)}</option>`).join('');sel.value=edMapIdx;}
+function edSelectCamp(i){edCampIdx=+i;edMapIdx=0;edSel=null;edRenderAll();}
+function edSelectMap(i){edMapIdx=+i;edSel=null;edRenderAll();}
+function edAddMap(){const c=curEdCamp();const id='m'+Date.now().toString(36);c.maps.push({id:id,name:'Map '+(c.maps.length+1),cols:5,rows:5,squares:{}});edMapIdx=c.maps.length-1;edSel=null;edRenderAll();}
+function edRenameMap(){const m=curEdMap();const v=prompt('Map name:',m.name);if(v!=null){m.name=v||m.name;edRenderAll();}}
+function edDelMap(){const c=curEdCamp();if(c.maps.length<=1){toast('A campaign needs at least one map.');return;}const removed=c.maps.splice(edMapIdx,1)[0];if(c.start.map===removed.id)c.start={map:c.maps[0].id,x:0,y:0};edMapIdx=0;edSel=null;edRenderAll();}
 function edRename(v){curEdCamp().name=v||'Untitled';edRefreshSelect();edSyncJson();renderListIfOpen();}
-function edResize(){const c=curEdCamp();c.cols=+document.getElementById('edCols').value;c.rows=+document.getElementById('edRows').value;if(c.start.x>=c.cols)c.start.x=0;if(c.start.y>=c.rows)c.start.y=0;edSel=null;edRenderAll();}
-function edNewCampaign(){const id='camp'+Date.now().toString(36);CAMPAIGNS.push({id:id,name:'New Campaign',cols:5,rows:5,start:{x:2,y:4},squares:{"2,4":{type:'move',desc:'The journey begins…'}}});edCampIdx=CAMPAIGNS.length-1;edSel=null;edInit();renderListIfOpen();}
-function edRenderAll(){const c=curEdCamp();document.getElementById('edName').value=c.name;document.getElementById('edCols').value=c.cols;document.getElementById('edRows').value=c.rows;edRenderGrid();edRenderForm();edSyncJson();renderListIfOpen();}
+function edWinType(v){const c=curEdCamp();c.win=c.win||{type:'exit'};c.win.type=v;if(v==='exit')delete c.win.value;else if(c.win.value==null)c.win.value='';edRenderAll();}
+function edWinVal(v){const c=curEdCamp();c.win=c.win||{type:'exit'};c.win.value=v;edSyncJson();}
+function edResize(){const m=curEdMap(),c=curEdCamp();m.cols=+document.getElementById('edCols').value;m.rows=+document.getElementById('edRows').value;if(c.start.map===m.id){if(c.start.x>=m.cols)c.start.x=0;if(c.start.y>=m.rows)c.start.y=0;}edSel=null;edRenderAll();}
+function edNewCampaign(){const id='camp'+Date.now().toString(36);CAMPAIGNS.push({id:id,name:'New Campaign',win:{type:'exit'},start:{map:'m0',x:2,y:4},maps:[{id:'m0',name:'Map 1',cols:5,rows:5,squares:{"2,4":{type:'move',desc:'The journey begins…'}}}]});edCampIdx=CAMPAIGNS.length-1;edMapIdx=0;edSel=null;edInit();renderListIfOpen();}
+function edRenderAll(){const c=curEdCamp(),m=curEdMap();document.getElementById('edName').value=c.name;document.getElementById('edCols').value=m.cols;document.getElementById('edRows').value=m.rows;const wt=document.getElementById('edWinType');if(wt)wt.value=(c.win&&c.win.type)||'exit';const wv=document.getElementById('edWinVal');if(wv){wv.style.display=(c.win&&c.win.type!=='exit')?'block':'none';wv.value=(c.win&&c.win.value)||'';}edRefreshMaps();edRenderGrid();edRenderForm();edSyncJson();renderListIfOpen();}
 function edRenderGrid(){
-  const c=curEdCamp(),g=document.getElementById('edGrid');g.style.gridTemplateColumns=`repeat(${c.cols},1fr)`;
+  const c=curEdCamp(),m=curEdMap(),g=document.getElementById('edGrid');g.style.gridTemplateColumns=`repeat(${m.cols},1fr)`;
   let h='';
-  for(let y=0;y<c.rows;y++)for(let x=0;x<c.cols;x++){const k=x+','+y,sq=c.squares[k];
+  for(let y=0;y<m.rows;y++)for(let x=0;x<m.cols;x++){const k=x+','+y,sq=m.squares[k];
     const cls='edcell'+(sq?'':' empty')+(edSel===k?' sel':'');
     const ic=sq?(ICON[sq.type]||'·'):'';
-    const star=(c.start.x===x&&c.start.y===y)?'<span class="star">★</span>':'';
+    const star=(c.start.map===m.id&&c.start.x===x&&c.start.y===y)?'<span class="star">★</span>':'';
     h+=`<div class="${cls}" onclick="edClickCell('${k}')">${ic}${star}</div>`;}
   g.innerHTML=h;
 }
@@ -1287,17 +1372,18 @@ function edClickCell(k){edSel=k;edRenderGrid();edRenderForm();}
 function edRenderForm(){
   const f=document.getElementById('edForm');f.className='edform';
   if(!edSel){f.className='';f.innerHTML='<div style="font-size:10px;color:var(--muted);text-align:center;padding:6px">Select a tile above to edit it.</div>';return;}
-  const c=curEdCamp(),sq=c.squares[edSel]||{type:''},co=edSel.split(',').map(Number);
-  const isStart=(c.start.x===co[0]&&c.start.y===co[1]);
-  let h=`<div style="font-size:10px;color:var(--accent2);text-align:center;margin-bottom:2px">Tile ${edSel}</div>`;
+  const c=curEdCamp(),m=curEdMap(),sq=m.squares[edSel]||{type:''},co=edSel.split(',').map(Number);
+  const isStart=(c.start.map===m.id&&c.start.x===co[0]&&c.start.y===co[1]);
+  let h=`<div style="font-size:10px;color:var(--accent2);text-align:center;margin-bottom:2px">${esc(m.name)} · Tile ${edSel}</div>`;
   h+=`<label>Tile type</label><select onchange="edSetType(this.value)">${SQ_TYPES.map(t=>`<option value="${t[0]}" ${(sq.type||'')===t[0]?'selected':''}>${t[1]}</option>`).join('')}</select>`;
   h+=`<button class="btn ghost sm" style="margin-top:6px" onclick="edSetStart()" ${isStart?'disabled':''}>${isStart?'★ This is the start':'Set as start tile'}</button>`;
   if(sq.type){
     h+=`<label>Description (shown on arrival)</label><textarea rows="2" oninput="edSet('desc',this.value)">${esc(sq.desc)}</textarea>`;
     if(sq.type==='talk')h+=`<label>Dialogue</label><textarea rows="2" oninput="edSet('text',this.value)">${esc(sq.text)}</textarea>`;
     if(sq.type==='item')h+=`<label>Item name</label><input value="${esc(sq.item)}" oninput="edSet('item',this.value)"><div class="two"><div><label>XP</label><input type="number" value="${sq.xp||0}" oninput="edSetNum('xp',this.value)"></div><div><label>Heal</label><input type="number" value="${sq.heal||0}" oninput="edSetNum('heal',this.value)"></div></div>`;
+    if(sq.type==='door'){const to=sq.to||{};h+=`<label>Teleport to map</label><select onchange="edDoor('map',this.value)">${c.maps.map(mm=>`<option value="${mm.id}" ${to.map===mm.id?'selected':''}>${esc(mm.name)}</option>`).join('')}</select><div class="two"><div><label>Dest X</label><input type="number" min="0" value="${to.x||0}" oninput="edDoorNum('x',this.value)"></div><div><label>Dest Y</label><input type="number" min="0" value="${to.y||0}" oninput="edDoorNum('y',this.value)"></div></div><label>Button label (optional)</label><input value="${esc(sq.label)}" oninput="edSet('label',this.value)" placeholder="e.g. Enter the cave"><div style="font-size:9.5px;color:var(--muted);margin-top:2px">The destination tile must exist on that map (give it a Path tile).</div>`;}
     if(sq.type==='exit')h+=`<label>Reward XP</label><input type="number" value="${sq.reward||0}" oninput="edSetNum('reward',this.value)">`;
-    if(sq.type==='fight'){const e=sq.enemy||{};h+=`<label>Enemy name</label><input value="${esc(e.name)}" oninput="edEnemy('name',this.value)"><label>Element</label><select onchange="edEnemy('element',this.value)">${ELS.map(x=>`<option ${e.element===x?'selected':''}>${x}</option>`).join('')}</select><div class="two"><div><label>HP</label><input type="number" value="${e.hp||20}" oninput="edEnemyNum('hp',this.value)"></div><div><label>ATK</label><input type="number" value="${e.atk||5}" oninput="edEnemyNum('atk',this.value)"></div><div><label>Reward</label><input type="number" value="${e.reward||60}" oninput="edEnemyNum('reward',this.value)"></div></div><label>Item dropped on defeat (optional)</label><input value="${esc(e.loot)}" oninput="edEnemy('loot',this.value)" placeholder="e.g. Iron Key">`;}
+    if(sq.type==='fight'){const e=sq.enemy||{};h+=`<label>Enemy name</label><input value="${esc(e.name)}" oninput="edEnemy('name',this.value)"><label>Sprite (battle avatar)</label><select onchange="edEnemy('sprite',this.value)">${FOE_LIST.map(s=>`<option value="${s}" ${(e.sprite||'goblin')===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}</select><label>Element</label><select onchange="edEnemy('element',this.value)">${ELS.map(x=>`<option ${e.element===x?'selected':''}>${x}</option>`).join('')}</select><div class="two"><div><label>HP</label><input type="number" value="${e.hp||20}" oninput="edEnemyNum('hp',this.value)"></div><div><label>ATK</label><input type="number" value="${e.atk||5}" oninput="edEnemyNum('atk',this.value)"></div><div><label>Reward</label><input type="number" value="${e.reward||60}" oninput="edEnemyNum('reward',this.value)"></div></div><label>Item dropped on defeat (optional)</label><input value="${esc(e.loot)}" oninput="edEnemy('loot',this.value)" placeholder="e.g. Iron Key">`;}
     if(sq.type==='choice'){const o=sq.options||[{},{}];h+=`<label>Prompt</label><input value="${esc(sq.prompt)}" oninput="edSet('prompt',this.value)">`;[0,1].forEach(i=>{const op=o[i]||{};h+=`<div style="border-top:1px solid #25304a;margin-top:6px;padding-top:2px"><label>Option ${i+1} label</label><input value="${esc(op.label)}" oninput="edOpt(${i},'label',this.value)"><div class="two"><div><label>XP</label><input type="number" value="${op.xp||0}" oninput="edOptNum(${i},'xp',this.value)"></div><div><label>Dmg</label><input type="number" value="${op.dmg||0}" oninput="edOptNum(${i},'dmg',this.value)"></div><div><label>Heal</label><input type="number" value="${op.heal||0}" oninput="edOptNum(${i},'heal',this.value)"></div></div><label>Result text</label><input value="${esc(op.text)}" oninput="edOpt(${i},'text',this.value)"></div>`;});}
     const rq=sq.req||{};
     h+=`<div style="border-top:1px solid #25304a;margin-top:8px;padding-top:2px"><label>Requirement to enter this tile</label><select onchange="edReq('kind',this.value)"><option value="" ${!rq.kind?'selected':''}>None (always open)</option><option value="item" ${rq.kind==='item'?'selected':''}>Must hold an item</option><option value="defeat" ${rq.kind==='defeat'?'selected':''}>Must have defeated a creature</option></select>`;
@@ -1314,12 +1400,14 @@ function edEnemy(k,v){const sq=curSq();if(!sq)return;sq.enemy=sq.enemy||{};if(v=
 function edEnemyNum(k,v){const sq=curSq();if(!sq)return;sq.enemy=sq.enemy||{};sq.enemy[k]=+v||0;edSyncJson();}
 function edOpt(i,k,v){const sq=curSq();if(!sq)return;sq.options=sq.options||[{},{}];sq.options[i]=sq.options[i]||{};sq.options[i][k]=v;edSyncJson();}
 function edOptNum(i,k,v){const sq=curSq();if(!sq)return;sq.options=sq.options||[{},{}];sq.options[i]=sq.options[i]||{};const n=+v||0;if(n)sq.options[i][k]=n;else delete sq.options[i][k];edSyncJson();}
-function edSetType(t){const c=curEdCamp();if(!t){delete c.squares[edSel];}else{const cur=c.squares[edSel]||{};const sq={type:t,desc:cur.desc||''};if(t==='talk')sq.text=cur.text||'';if(t==='fight')sq.enemy=cur.enemy||{name:'Foe',element:'Fire',hp:20,atk:5,reward:60};if(t==='item'){sq.item=cur.item||'Treasure';sq.xp=cur.xp||20;sq.heal=cur.heal||0;}if(t==='choice'){sq.prompt=cur.prompt||'';sq.options=cur.options||[{label:'Option A',xp:30,text:'…'},{label:'Option B',dmg:10,text:'…'}];}if(t==='exit')sq.reward=cur.reward||200;c.squares[edSel]=sq;}edRenderGrid();edRenderForm();edSyncJson();renderListIfOpen();}
-function edSetStart(){const co=edSel.split(',').map(Number);const c=curEdCamp();c.start={x:co[0],y:co[1]};if(!c.squares[edSel])c.squares[edSel]={type:'move',desc:'The journey begins…'};edRenderGrid();edRenderForm();edSyncJson();}
+function edSetType(t){const m=curEdMap(),c=curEdCamp();if(!t){delete m.squares[edSel];}else{const cur=m.squares[edSel]||{};const sq={type:t,desc:cur.desc||''};if(t==='talk')sq.text=cur.text||'';if(t==='fight')sq.enemy=cur.enemy||{name:'Foe',element:'Fire',hp:20,atk:5,reward:60,sprite:'goblin'};if(t==='item'){sq.item=cur.item||'Treasure';sq.xp=cur.xp||20;sq.heal=cur.heal||0;}if(t==='choice'){sq.prompt=cur.prompt||'';sq.options=cur.options||[{label:'Option A',xp:30,text:'…'},{label:'Option B',dmg:10,text:'…'}];}if(t==='door'){const others=c.maps.filter(x=>x.id!==m.id);const tm=(others[0]||c.maps[0]).id;sq.to=cur.to||{map:tm,x:0,y:0};sq.label=cur.label||'';}if(t==='exit')sq.reward=cur.reward||200;m.squares[edSel]=sq;}edRenderGrid();edRenderForm();edSyncJson();renderListIfOpen();}
+function edSetStart(){const co=edSel.split(',').map(Number);const c=curEdCamp(),m=curEdMap();c.start={map:m.id,x:co[0],y:co[1]};if(!m.squares[edSel])m.squares[edSel]={type:'move',desc:'The journey begins…'};edRenderGrid();edRenderForm();edSyncJson();}
+function edDoor(k,v){const sq=curSq();if(!sq)return;sq.to=sq.to||{};sq.to[k]=v;edSyncJson();}
+function edDoorNum(k,v){const sq=curSq();if(!sq)return;sq.to=sq.to||{};sq.to[k]=+v||0;edSyncJson();}
 function edSyncJson(){const t=document.getElementById('campJson');if(t)t.value=JSON.stringify(CAMPAIGNS,null,1);}
 const LS_KEY='fc_campaigns_v1';
 function saveCampaigns(){try{localStorage.setItem(LS_KEY,JSON.stringify(CAMPAIGNS));toast('Campaigns saved ✔');log('💾 Saved '+CAMPAIGNS.length+' campaign(s) to this device.');}catch(e){toast('Save failed: '+e.message);}}
-function loadCampaigns(){try{const s=localStorage.getItem(LS_KEY);if(s){const o=JSON.parse(s);if(Array.isArray(o)&&o.length&&o[0].squares){CAMPAIGNS.length=0;o.forEach(c=>CAMPAIGNS.push(c));}}}catch(e){}}
+function loadCampaigns(){try{const s=localStorage.getItem(LS_KEY);if(s){const o=JSON.parse(s);if(Array.isArray(o)&&o.length&&(o[0].squares||o[0].maps)){CAMPAIGNS.length=0;o.forEach(c=>CAMPAIGNS.push(c));}}}catch(e){}CAMPAIGNS.forEach(normCamp);}
 function resetCampaigns(){try{localStorage.removeItem(LS_KEY);}catch(e){}toast('Saved maps cleared — reload to restore defaults.');log('Saved campaigns reset.');}
 function renderListIfOpen(){if(document.getElementById('v-camplist').classList.contains('active'))renderCampList();}
 

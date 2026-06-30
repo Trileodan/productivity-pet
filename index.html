@@ -808,7 +808,12 @@ const CAMPAIGNS=[
 
 function newProg(){return {xp:0,level:1,tal:{STR:1,DEX:1,INT:1,WIS:1,CHA:1},cls:null,health:100,alive:true,pending:0,hatched:false,moves:[],mvProc:{},cd:{},campDone:{},run:null,petName:'',trainSec:0,restSec:0,slain:0,hearts:3,
   needs:{move:70,purpose:70,play:70,sleep:70,connect:70}, catSec:{move:0,purpose:0,play:0,sleep:0,connect:0}, needBucket:{}};}
-function ensureNeeds(p){if(!p.needs)p.needs={move:70,purpose:70,play:70,sleep:70,connect:70};if(!p.catSec)p.catSec={move:0,purpose:0,play:0,sleep:0,connect:0};if(!p.needBucket)p.needBucket={};if(p.hearts==null)p.hearts=3;NEED_KEYS.forEach(k=>{if(p.needs[k]==null)p.needs[k]=70;if(p.catSec[k]==null)p.catSec[k]=0;});return p;}
+function ensureNeeds(p){if(!p.needs)p.needs={move:70,purpose:70,play:70,sleep:70,connect:70};if(!p.catSec)p.catSec={move:0,purpose:0,play:0,sleep:0,connect:0};if(!p.needBucket)p.needBucket={};if(p.hearts==null)p.hearts=3;NEED_KEYS.forEach(k=>{if(p.needs[k]==null)p.needs[k]=70;if(p.catSec[k]==null)p.catSec[k]=0;});
+  // backfill core fields so a partial/old save can never break rendering
+  if(p.level==null)p.level=1;if(p.xp==null)p.xp=0;if(p.health==null)p.health=100;if(p.alive==null)p.alive=true;if(p.hatched==null)p.hatched=false;if(p.pending==null)p.pending=0;
+  if(!p.tal)p.tal={STR:1,DEX:1,INT:1,WIS:1,CHA:1};if(!p.campDone)p.campDone={};if(!p.mvProc)p.mvProc={};if(!p.cd)p.cd={};if(!Array.isArray(p.moves))p.moves=[];
+  if(p.trainSec==null)p.trainSec=0;if(p.restSec==null)p.restSec=0;if(p.slain==null)p.slain=0;
+  return p;}
 function fmtTime(s){s=Math.round(s||0);const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);if(h>0)return h+'h '+m+'m';if(m>0)return m+'m';return s+'s';}
 let prog={};SPECIES.forEach(s=>prog[s.key]=newProg());
 let active=null, pickSel=0, pendingHatch=null;
@@ -946,17 +951,19 @@ function eggSVG(s){return `<svg viewBox="0 0 100 100"><ellipse cx="50" cy="56" r
 function renderPicker(){
   const p=document.getElementById('picker');p.innerHTML='';
   SPECIES.forEach((s,i)=>{
-    const pr=prog[s.key];
-    const egg=(!pr.hatched||!pr.alive);
-    const img=egg?eggSVG(s):art(s.key,petStage(pr),pr.health,pr.cls);
-    const lbl=!pr.alive?'fallen':(!pr.hatched?'egg':'Lv'+pr.level);
     const d=document.createElement('div');
     d.className='egg'+(i===pickSel?' sel':'');
-    d.innerHTML=`<div style="width:50px;height:50px">${img}</div><small>${egg?s.eggName:nameOf(s.key)}</small><span class="lv">${lbl}</span>`;
+    try{
+      const pr=prog[s.key]||(prog[s.key]=newProg());ensureNeeds(pr);
+      const egg=(!pr.hatched||!pr.alive);
+      const img=egg?eggSVG(s):art(s.key,petStage(pr),pr.health,pr.cls);
+      const lbl=!pr.alive?'fallen':(!pr.hatched?'egg':'Lv'+pr.level);
+      d.innerHTML=`<div style="width:50px;height:50px">${img}</div><small>${egg?s.eggName:nameOf(s.key)}</small><span class="lv">${lbl}</span>`;
+    }catch(e){ d.innerHTML=`<div style="width:50px;height:50px">${eggSVG(s)}</div><small>${s.eggName}</small><span class="lv">egg</span>`; }
     d.onclick=()=>{pickSel=i;renderPicker();renderPickPrev();};
     p.appendChild(d);
   });
-  renderPickPrev();
+  try{renderPickPrev();}catch(e){}
 }
 function renderPickPrev(){
   const s=SPECIES[pickSel],pr=prog[s.key],st=petStage(pr),egg=(!pr.hatched||!pr.alive);
@@ -1140,6 +1147,8 @@ function loadNeeds(){try{
   }
   const sl=localStorage.getItem(LS_SLOG);if(sl)sessionLog=JSON.parse(sl)||[];
 }catch(e){}
+SPECIES.forEach(k=>{if(!prog[k])prog[k]=newProg();ensureNeeds(prog[k]);}); // guarantee every species exists after a load
+if(active&&!prog[active])active=null;
 reconcileSession();   // credit elapsed real time to a still-running session (esp. Sleep) before depleting needs
 reconcileNeeds();}
 let pendingSess=null, sessResume=null, sleepResumeMsg='';

@@ -151,6 +151,48 @@
   .foeAtk{animation:foeLunge .45s ease-in-out}
   .foefloat{animation:foeIdle 3s ease-in-out infinite}
   @keyframes foeIdle{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+  /* ===== needs feed + category dial dashboard ===== */
+  .needfeed{display:flex;flex-direction:column;gap:3px;margin:6px 0 2px}
+  .needrow{display:flex;align-items:center;gap:6px;font-size:10px}
+  .needrow .nico{width:15px;text-align:center;font-size:12px}
+  .needrow .nlab{width:50px;color:var(--muted);white-space:nowrap}
+  .needbar{flex:1;height:7px;background:#1a2335;border-radius:5px;overflow:hidden}
+  .needbar i{display:block;height:100%;border-radius:5px;transition:width .4s linear,background .4s}
+  .needrow .nval{width:54px;text-align:right;color:var(--muted);font-size:9px}
+  .allgreen{text-align:center;font-size:10px;color:var(--accent);font-weight:700;margin:2px 0}
+  .catrow{display:flex;justify-content:center;gap:8px;margin:9px 0 1px;flex-wrap:wrap}
+  .catbtn{width:56px;height:56px;border-radius:50%;border:2px solid #caa24a;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;color:#fff;position:relative;box-shadow:0 3px 7px #0008, inset 0 2px 6px #ffffff33, inset 0 -5px 9px #00000066}
+  .catbtn::after{content:"";position:absolute;inset:3px;border-radius:50%;border:1px solid #ffffff2e;pointer-events:none}
+  .catbtn::before{content:"";position:absolute;inset:-3px;border-radius:50%;border:1px solid #caa24a55;pointer-events:none}
+  .catbtn .cemoji{font-size:20px;filter:drop-shadow(0 1px 1px #000a)}
+  .catbtn small{font-size:7.5px;margin-top:2px;color:#f3ead0;text-shadow:0 1px 1px #000a;font-weight:600}
+  .catbtn:active{transform:scale(.92)}
+  /* vertical Sims-style need bars (shown in the pet panel) */
+  .needcols{display:flex;justify-content:center;gap:9px;margin:4px 0 2px}
+  .needcol{display:flex;flex-direction:column;align-items:center;gap:3px;width:40px}
+  .needcol .vval{font-size:9px;color:var(--muted)}
+  .vbar{width:18px;height:84px;background:#10182a;border-radius:7px;border:1px solid #2c3c5c;display:flex;align-items:flex-end;overflow:hidden;box-shadow:inset 0 2px 5px #0008}
+  .vbar i{display:block;width:100%;border-radius:6px;transition:height .4s linear,background .4s}
+  .needcol .vico{font-size:15px;margin-top:1px}
+  .needcol .vlab{font-size:8px;color:var(--muted)}
+  .dialwrap{position:relative;width:240px;height:240px;margin:8px auto 4px}
+  .dial{position:absolute;inset:0;touch-action:none}
+  .dial-track{fill:none;stroke:#1a2335;stroke-width:10}
+  .dial-prog{fill:none;stroke:var(--accent);stroke-width:10;stroke-linecap:round;transform:rotate(-90deg);transform-origin:120px 120px}
+  .dial-handle{fill:#ffffff;stroke:var(--accent);stroke-width:3;cursor:grab}
+  .dial-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:150px;height:150px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .dial-center .creature{width:135px;height:135px;margin:0}
+  .dial-center .fx{position:absolute}
+  .dial-readout{position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);background:#0d1626;border:1px solid #25304a;border-radius:13px;padding:2px 13px;text-align:center;line-height:1.1}
+  .dial-readout b{font-size:19px}.dial-readout small{font-size:9px;color:var(--muted);margin-left:3px}
+  .difflbl{text-align:center;font-size:11px;color:var(--muted);margin:12px 0 5px}
+  .diffrow{display:flex;gap:6px;justify-content:center}
+  .diffbtn{flex:1;padding:8px 4px;border-radius:10px;border:1px solid #2c3c5c;background:#16203a;color:var(--muted);font-size:12px;cursor:pointer;font-weight:600;text-align:center}
+  .diffbtn small{display:block;font-size:8.5px;font-weight:400;color:var(--muted);margin-top:1px}
+  .diffbtn.on{background:linear-gradient(180deg,#2a3a5e,#1c2840);color:var(--ink);border-color:var(--accent)}
+  .advround{display:block;margin:14px auto 0;width:62px;height:62px;border-radius:50%;border:none;background:linear-gradient(180deg,#d9b44a,#b8902f);color:#3a2c00;font-size:26px;cursor:pointer;position:relative;box-shadow:0 4px 12px #0006}
+  .advround:active{transform:scale(.94)}
+  .advround .advtok{position:absolute;right:-4px;bottom:-4px;background:#16203a;color:var(--gold);font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px;border:1px solid #3a2c00}
   /* polish */
   .btn.primary,.btn.gold{box-shadow:0 4px 12px rgba(0,0,0,.25)}
   .bar{height:11px}
@@ -208,24 +250,45 @@
         <!-- HOME -->
         <div class="view" id="v-home">
           <div class="logo"><span class="ico">🥚</span><span class="txt">Productivity <b>Pets</b></span></div>
-          <div class="homewrap" onclick="openStats()">
-            <div class="creature idle" id="homeArt"></div>
-            <div class="fx fx-el" id="homeFxEl"></div>
-            <div class="fx fx-cls" id="homeFxCls"></div>
-          </div>
+
           <div class="name" id="homeName" onclick="openStats()" style="cursor:pointer">Sprout</div>
           <div class="stagelbl" id="homeStage">Lv 1 · Hatchling</div>
-          <div class="center" style="font-size:9px;color:var(--muted);margin:1px 0 7px">tap the pet for talents, moves &amp; switch ›</div>
-          <div class="bar xp"><i id="homeXp"></i></div>
+          <div class="center" style="font-size:9px;color:var(--muted);margin:1px 0">tap the pet for talents, moves &amp; needs ›</div>
+
+          <!-- 5 category buttons -->
+          <div class="catrow" id="catRow"></div>
+          <div class="center" style="font-size:9px;color:var(--muted);margin:1px 0 0">tap a discipline to begin · drag the rune-ring to set length</div>
+
+          <!-- avatar + circular duration dial -->
+          <div class="dialwrap" id="dialWrap">
+            <svg class="dial" id="dialSvg" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+              <circle class="dial-track" cx="120" cy="120" r="104"/>
+              <circle class="dial-prog" id="dialProg" cx="120" cy="120" r="104"/>
+              <circle class="dial-handle" id="dialHandle" cx="120" cy="16" r="11"/>
+            </svg>
+            <div class="dial-center" onclick="openStats()">
+              <div class="creature idle" id="homeArt"></div>
+              <div class="fx fx-el" id="homeFxEl"></div>
+              <div class="fx fx-cls" id="homeFxCls"></div>
+            </div>
+            <div class="dial-readout"><b id="durVal">30</b><small>min</small></div>
+          </div>
+
+          <!-- XP + health (under the avatar) -->
+          <div class="bar xp" style="margin-top:8px"><i id="homeXp"></i></div>
           <div class="barlbl"><span id="homeXpName">Lv 1 → 2</span><span id="homeXpL">0/150</span></div>
           <div class="bar hp"><i id="homeHp"></i></div>
           <div class="barlbl"><span>❤ Health</span><span id="homeHpL">100%</span></div>
           <div class="lvlup" id="lvlBtn" style="display:none" onclick="event.stopPropagation();openProgression()">⭐ Level up — tap to spend points</div>
           <div class="lvlup" id="moveBtn" style="display:none;border-color:var(--accent2);color:var(--accent2);background:linear-gradient(90deg,#16223e,#22305a)" onclick="event.stopPropagation();openMoves()">✨ New move — tap to learn</div>
-          <div class="stepper" id="durStep" style="margin-top:12px"><button onclick="cycleDur(-1)">‹</button><div class="stepval" onclick="cycleDur(1)"><small>Session length</small><b id="durVal">30 min</b></div><button onclick="cycleDur(1)">›</button></div>
-          <div class="stepper" id="budStep"><button onclick="cycleBudget(-1)">‹</button><div class="stepval" onclick="cycleBudget(1)"><small>Phone allowance / 30 min</small><b id="budVal">Light · 2m</b></div><button onclick="cycleBudget(1)">›</button></div>
-          <div class="crow" style="margin-top:10px"><button class="btn primary" style="flex:1" onclick="startSession('train')">🎓 TRAINING</button><button class="btn" style="flex:1;background:linear-gradient(180deg,#8fb4ff,#6f97ee);color:#06203a" onclick="startSession('mind')">🧘 HEALING</button></div>
-          <button class="btn gold" id="advBtn" onclick="openCampList()">⚔ Adventure · <span id="advTok">0</span> 🎟</button>
+
+          <!-- phone allowance difficulty -->
+          <div class="difflbl">📱 Phone allowance: <span id="diffAllow" style="color:var(--ink)"></span></div>
+          <div class="diffrow" id="diffRow"></div>
+
+          <!-- adventure (separate round button) -->
+          <button class="advround" id="advBtn" onclick="openCampList()" title="Adventure"><span>⚔️</span><span class="advtok" id="advTok">0</span></button>
+          <button class="btn ghost sm" onclick="openLog()" style="margin-top:8px">📋 Session log &amp; totals</button>
         </div>
 
         <!-- FOCUS -->
@@ -393,8 +456,20 @@ const STAGE_LBL=['Hatchling','Juvenile','Adolescent','Adult','Elder','Ancient'];
 const STAGE_MIN=[1,5,15,25,35,50]; // stages 0..5 by level; stage 6 (Ultimate) = complete all campaigns with this pet
 const MAX_LEVEL=50;
 const BASE_NEED=150, NEED_GROWTH=1.5, DRAIN_PER_SEC=10, TOKEN_SECS=300;
-const BUDGETS=[['Strict','0m',0],['Light','2m',120],['Relaxed','5m',300],['Chill','10m',600]];
-const DURATIONS=[5,15,30,45,60];
+/* 5 life categories. kind 'train' = XP only. kind 'heal' = heal first, then XP once full health.
+   dep/gain are NEED points PER HOUR (applied per-second). */
+const CATS=[
+  {key:'move',    name:'Move',    icon:'⚔️', rune:'🜂', kind:'train', dep:0.8, gain:10, col:'#c4502e', sub:'Exercise',            low:['Low energy','Stiffness','Reduced mood']},
+  {key:'purpose', name:'Purpose', icon:'📖', rune:'🜁', kind:'train', dep:1,   gain:8,  col:'#b88a2e', sub:'Work · Study · Chores', low:['Unfocused','Restless','Guilt']},
+  {key:'play',    name:'Play',    icon:'🎲', rune:'🜄', kind:'heal',  dep:1,   gain:8,  col:'#2e8fb8', sub:'Real-world hobbies',   low:['Boredom','Low enthusiasm','Burnout']},
+  {key:'sleep',   name:'Sleep',   icon:'🌙', rune:'🜃', kind:'heal',  dep:4,   gain:8,  col:'#5b4fae', sub:'Recovery',             low:['Tired','Exhausted','Critical']},
+  {key:'connect', name:'Connect', icon:'🕯️', rune:'🝧', kind:'heal',  dep:0.5, gain:8,  col:'#b8478f', sub:'Family & friends',     low:['Isolation','Loneliness','Irritability']}
+];
+function catBy(k){return CATS.find(c=>c.key===k);}
+const NEED_KEYS=CATS.map(c=>c.key);
+/* Phone allowance difficulty — minutes of allowance PER HOUR of session (scales with chosen duration). */
+const DIFFS=[['Easy',15],['Medium',10],['Hard',0]];
+const DUR_MIN=5, DUR_MAX=120, DUR_STEP=5;
 const ICON={move:'·',fight:'⚔',item:'◆',choice:'❓',talk:'💬',door:'🚪',exit:'🏁'};
 /* Pets are ALWAYS single-element (their species). Each MOVE has its own element, used for damage matchups. */
 const ELEMENT={sprout:'Nature',ember:'Fire',pebble:'Water',umbra:'Shadow',angel:'Light'};
@@ -690,7 +765,9 @@ const CAMPAIGNS=[
   }
 ];
 
-function newProg(){return {xp:0,level:1,tal:{STR:1,DEX:1,INT:1,WIS:1,CHA:1},cls:null,health:100,alive:true,pending:0,hatched:false,moves:[],mvProc:{},cd:{},campDone:{},run:null,petName:'',trainSec:0,restSec:0,slain:0};}
+function newProg(){return {xp:0,level:1,tal:{STR:1,DEX:1,INT:1,WIS:1,CHA:1},cls:null,health:100,alive:true,pending:0,hatched:false,moves:[],mvProc:{},cd:{},campDone:{},run:null,petName:'',trainSec:0,restSec:0,slain:0,
+  needs:{move:70,purpose:70,play:70,sleep:70,connect:70}, catSec:{move:0,purpose:0,play:0,sleep:0,connect:0}, needBucket:{}};}
+function ensureNeeds(p){if(!p.needs)p.needs={move:70,purpose:70,play:70,sleep:70,connect:70};if(!p.catSec)p.catSec={move:0,purpose:0,play:0,sleep:0,connect:0};if(!p.needBucket)p.needBucket={};NEED_KEYS.forEach(k=>{if(p.needs[k]==null)p.needs[k]=70;if(p.catSec[k]==null)p.catSec[k]=0;});return p;}
 function fmtTime(s){s=Math.round(s||0);const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);if(h>0)return h+'h '+m+'m';if(m>0)return m+'m';return s+'s';}
 let prog={};SPECIES.forEach(s=>prog[s.key]=newProg());
 let active=null, pickSel=0, pendingHatch=null;
@@ -701,6 +778,10 @@ let history={};     // speciesKey -> [ {name, cls, level, cause} ] of fallen pet
 
 /* session state */
 let sActive=false,sTimer=null,secs=0,total=1800,gained=0,focusedSecs=0,phoneUsed=0,phoneUp=false,sessionType='train';
+let sessionCat='purpose', sessNeedGain=0, sessHpGain=0; // current session's category + accrued gains
+let diffIdx=1; // phone-allowance difficulty (0 Easy,1 Medium,2 Hard)
+let sessionLog=[]; // {ts,cat,dur,points,xp,hp}
+let needsTs=Date.now(); // last time needs were ticked (for cross-close reconciliation)
 let testMode=true; // TEST MODE: while on, locking/sleeping/app-switching is ignored (no phone-time penalty). Turn off to test the real behaviour.
 
 /* ===== HELPERS ===== */
@@ -857,11 +938,105 @@ function confirmName(){
   log(`Hatched ${nm} the ${s.name} (${ELEMENT[k]}).`);
 }
 
-/* ===== SEGMENTS ===== */
-function renderDurBox(){sessionMins=DURATIONS[durIdx];document.getElementById('durVal').textContent=sessionMins+' min';}
-function renderBudgetBox(){const b=BUDGETS[budgetIdx];budget=b[2];document.getElementById('budVal').textContent=b[0]+' · '+b[1];}
-function cycleDur(d){durIdx=(durIdx+d+DURATIONS.length)%DURATIONS.length;renderDurBox();}
-function cycleBudget(d){budgetIdx=(budgetIdx+d+BUDGETS.length)%BUDGETS.length;renderBudgetBox();}
+/* ===== DURATION DIAL + DIFFICULTY + NEEDS ENGINE ===== */
+const DIAL_R=104, DIAL_C=2*Math.PI*DIAL_R;
+let dialFrac=(30-DUR_MIN)/(DUR_MAX-DUR_MIN); // last handle position (0..1) — used to stop wrap-around
+function renderDial(){
+  const f=(sessionMins-DUR_MIN)/(DUR_MAX-DUR_MIN);dialFrac=f;
+  const prog=document.getElementById('dialProg');if(prog){prog.style.strokeDasharray=DIAL_C;prog.style.strokeDashoffset=DIAL_C*(1-f);}
+  const ang=(-90+f*360)*Math.PI/180, hx=120+DIAL_R*Math.cos(ang), hy=120+DIAL_R*Math.sin(ang);
+  const h=document.getElementById('dialHandle');if(h){h.setAttribute('cx',hx.toFixed(1));h.setAttribute('cy',hy.toFixed(1));}
+  const dv=document.getElementById('durVal');if(dv)dv.textContent=sessionMins;
+  renderDiff(); // allowance scales with duration
+}
+function setDurationFromPoint(clientX,clientY,fresh){
+  const svg=document.getElementById('dialSvg');if(!svg)return;const r=svg.getBoundingClientRect();
+  const cx=r.left+r.width/2, cy=r.top+r.height/2;
+  let a=Math.atan2(clientY-cy,clientX-cx)*180/Math.PI; // -180..180, 0 = east
+  let frac=((a+90)%360+360)%360/360; // 0 at top (min), clockwise to 1 (max)
+  // STOP at the ends — while DRAGGING, don't let the handle jump across the 12 o'clock gap
+  if(!fresh){
+    if(frac-dialFrac>0.5)frac=0;        // crossing backwards over the top → clamp to 5 min
+    else if(dialFrac-frac>0.5)frac=1;   // crossing forwards over the top → clamp to 120 min
+  }
+  let mins=Math.round((DUR_MIN+frac*(DUR_MAX-DUR_MIN))/DUR_STEP)*DUR_STEP;
+  sessionMins=Math.max(DUR_MIN,Math.min(DUR_MAX,mins));
+  renderDial();
+}
+function initDial(){
+  const svg=document.getElementById('dialSvg');if(!svg||svg._wired)return;svg._wired=true;
+  let drag=false;
+  const down=e=>{drag=true;const t=e.touches?e.touches[0]:e;setDurationFromPoint(t.clientX,t.clientY,true);e.preventDefault();};
+  const move=e=>{if(!drag)return;const t=e.touches?e.touches[0]:e;setDurationFromPoint(t.clientX,t.clientY,false);e.preventDefault();};
+  const up=()=>{drag=false;};
+  svg.addEventListener('pointerdown',down);window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);
+  svg.addEventListener('touchstart',down,{passive:false});window.addEventListener('touchmove',move,{passive:false});window.addEventListener('touchend',up);
+}
+function allowanceSecs(){const perHr=DIFFS[diffIdx][1];return Math.round(perHr*sessionMins*60/60);} // perHr min × (mins/60) hr → minutes → ×60 s
+function renderDiff(){
+  const row=document.getElementById('diffRow');if(row){row.innerHTML=DIFFS.map((d,i)=>`<button class="diffbtn${i===diffIdx?' on':''}" onclick="setDiff(${i})">${d[0]}<small>${d[1]} min/hr</small></button>`).join('');}
+  budget=allowanceSecs();
+  const a=document.getElementById('diffAllow');if(a)a.textContent=budget>0?fmt(budget)+' for this session':'none (strict)';
+}
+function setDiff(i){diffIdx=i;renderDiff();}
+function shade(hex,f){const n=parseInt(hex.slice(1),16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;r=Math.round(r*f);g=Math.round(g*f);b=Math.round(b*f);return `rgb(${r},${g},${b})`;}
+function renderCatRow(){
+  const row=document.getElementById('catRow');if(!row)return;
+  row.innerHTML=CATS.map(c=>`<button class="catbtn" title="${c.name} · ${c.sub} (${c.kind==='train'?'earns XP':'heals, then XP'})" style="background:radial-gradient(circle at 50% 32%, #ffffffbb 0%, ${c.col} 52%, ${shade(c.col,.55)} 100%)" onclick="startSession('${c.key}')"><span class="cemoji">${c.icon}</span><small>${c.name}</small></button>`).join('');
+}
+/* ---- needs (Sims-style) ---- */
+function needColor(v){return v>75?'#4ad07a':v>50?'#e3c84a':v>25?'#e3954a':'#e3574a';}
+function needBucketOf(v){return v<25?'crit':v<50?'low':v<75?'ok':'good';}
+function sleepLabel(v){return v>=75?'Energetic':v>=50?'Normal':v>=25?'Tired':v>=10?'Exhausted':'Critical';}
+function needStatus(c,v){if(c.key==='sleep')return sleepLabel(v);return v>=75?'Great':v>=50?'Okay':v>=25?c.low[0]:c.low[2];}
+function needColsHTML(p){return CATS.map(c=>{const v=Math.round(p.needs[c.key]);
+  return `<div class="needcol" title="${c.name}: ${needStatus(c,v)}"><div class="vval">${v}</div><div class="vbar"><i style="height:${v}%;background:${needColor(v)}"></i></div><div class="vico">${c.icon}</div><div class="vlab">${c.name}</div></div>`;}).join('');}
+function renderNeedCols(){const box=document.getElementById('needCols');if(box&&active)box.innerHTML=needColsHTML(ensureNeeds(prog[active]));}
+function allNeedsGreen(){if(!active)return false;const p=prog[active];if(!p.needs)return false;return NEED_KEYS.every(k=>p.needs[k]>75);}
+function checkNeedNotif(p,key,v){
+  const b=needBucketOf(v), prev=p.needBucket[key]||'good';
+  const rank={good:3,ok:2,low:1,crit:0};
+  if(rank[b]<rank[prev]){ // dropped to a worse tier
+    if(b==='low')notify(catBy(key).name+' is getting low',nameOf(active)+'’s '+catBy(key).name+' need fell below 50%.');
+    else if(b==='crit')notify(catBy(key).name+' is critical!',nameOf(active)+'’s '+catBy(key).name+' need fell below 25%.');
+  }
+  p.needBucket[key]=b;
+}
+function needsTick(){
+  if(!active)return;const p=ensureNeeds(prog[active]);
+  const focusing=sActive&&!phoneUp&&!document.hidden;
+  CATS.forEach(c=>{
+    if(focusing&&c.key===sessionCat){const g=c.gain/3600;p.needs[c.key]=Math.min(100,p.needs[c.key]+g);sessNeedGain+=g;}
+    else{p.needs[c.key]=Math.max(0,p.needs[c.key]-c.dep/3600);}
+    checkNeedNotif(p,c.key,p.needs[c.key]);
+  });
+  if(focusing)p.catSec[sessionCat]=(p.catSec[sessionCat]||0)+1;
+}
+function globalTick(){ // runs every second, always
+  needsTick();
+  needsTs=Date.now();
+  renderNeedCols(); // live-update the bars if the pet panel is open
+  if((Date.now()%10000)<1000)saveNeeds();
+}
+/* Needs deplete in real time even while the app is closed — reconcile elapsed time on return. */
+function reconcileNeeds(){
+  const away=(Date.now()-needsTs)/1000; // no cap: needs keep ticking down in perpetuity
+  if(away<3)return;
+  SPECIES.forEach(k=>{const p=prog[k];if(!p.needs)return;CATS.forEach(c=>{p.needs[c.key]=Math.max(0,p.needs[c.key]-c.dep*away/3600);});});
+  needsTs=Date.now();
+}
+const LS_NEEDS='fc_needs_v1', LS_SLOG='fc_sesslog_v1';
+function saveNeeds(){try{const o={ts:Date.now(),pets:{}};SPECIES.forEach(k=>{o.pets[k]={needs:prog[k].needs,catSec:prog[k].catSec};});localStorage.setItem(LS_NEEDS,JSON.stringify(o));localStorage.setItem(LS_SLOG,JSON.stringify(sessionLog.slice(-200)));}catch(e){}}
+function loadNeeds(){try{const s=localStorage.getItem(LS_NEEDS);if(s){const o=JSON.parse(s);if(o.pets)SPECIES.forEach(k=>{if(o.pets[k]){prog[k].needs=o.pets[k].needs||prog[k].needs;prog[k].catSec=o.pets[k].catSec||prog[k].catSec;ensureNeeds(prog[k]);}});if(o.ts)needsTs=o.ts;}const sl=localStorage.getItem(LS_SLOG);if(sl)sessionLog=JSON.parse(sl)||[];}catch(e){}reconcileNeeds();}
+/* ---- session log ---- */
+function openLog(){
+  let rows=sessionLog.slice().reverse().slice(0,40).map(e=>{const c=catBy(e.cat)||{name:e.cat,icon:'•'};const d=new Date(e.ts);
+    return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:11px;border-bottom:1px solid #1c2840;padding:5px 0"><span>${c.icon} <b>${c.name}</b><br><span style="color:var(--muted);font-size:9.5px">${d.toLocaleDateString([], {month:'short',day:'numeric'})} ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></span><span style="text-align:right;color:var(--muted)">${fmtTime(e.dur)}<br><span style="color:var(--accent);font-size:9.5px">+${Math.round(e.points)} ${c.name||''}${e.xp?' · +'+e.xp+'xp':''}${e.hp?' · +'+Math.round(e.hp)+'hp':''}</span></span></div>`;}).join('');
+  if(!sessionLog.length)rows='<div style="color:var(--muted);font-size:11px;text-align:center;padding:8px">No sessions logged yet — start one from the home screen.</div>';
+  const p=active?ensureNeeds(prog[active]):null;
+  let totals=p?('<div style="font-size:11px;color:var(--accent2);text-align:center;margin:4px 0 2px">Total time per category</div>'+CATS.map(c=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0"><span>${c.icon} ${c.name}</span><span style="color:var(--muted)">${fmtTime(p.catSec[c.key]||0)}</span></div>`).join('')):'';
+  showModal(`<h3>📋 Session log</h3>${totals}<div style="font-size:11px;color:var(--accent2);text-align:center;margin:8px 0 2px">Recent sessions</div><div style="max-height:240px;overflow:auto">${rows}</div><button class="btn ghost sm" style="margin-top:10px" onclick="hideModal()">Close</button>`);
+}
 function attachSwipe(id,cb){const el=document.getElementById(id);if(!el)return;let sx=null;el.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;},{passive:true});el.addEventListener('touchend',e=>{if(sx==null)return;const dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>30)cb(dx<0?1:-1);sx=null;},{passive:true});}
 
 /* ===== HOME ===== */
@@ -883,6 +1058,7 @@ function updateAll(){
   document.getElementById('advTok').textContent=tokens;
   document.getElementById('homeFxEl').textContent=EL_EMOJI[ELEMENT[active]]||'';   // element idle animation
   document.getElementById('homeFxCls').textContent=p.cls?(CLASS_EMOJI[p.cls]||''):''; // class idle animation
+  ensureNeeds(p);renderCatRow();renderNeedCols();renderDial();initDial();
 }
 function moveLine(m,p){const pw=m.power?`${m.power}×${m.trait}`:'support';return `${m.name} <span style="color:var(--muted);font-size:10px">(${m.el} · ${pw}${m.cd?' · cd'+m.cd:''})</span>`;}
 function openStats(){
@@ -900,7 +1076,10 @@ function openStats(){
     <div style="text-align:center;color:var(--muted);font-size:11px;margin-bottom:6px">${s.name} · Lv ${p.level} · ${stageLabel(p)} · ${ELEMENT[active]}${p.cls?' · '+p.cls:''}</div>
     <div style="width:88px;height:88px;margin:0 auto 4px">${art(active,petStage(p),p.health,p.cls)}</div>
     <div style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:2px">${statLine(p)}</div>
-    <p style="text-align:center;font-size:11px;color:var(--accent2);margin:6px 0 2px">Talents (start at 1)</p>
+    <p style="text-align:center;font-size:11px;color:var(--accent2);margin:8px 0 2px">Needs</p>
+    <div class="needcols" id="needCols">${needColsHTML(ensureNeeds(p))}</div>
+    ${allNeedsGreen()?'<div style="text-align:center;font-size:10px;color:var(--accent);font-weight:700;margin-top:2px">🌟 All needs full — 2× attack in Adventure!</div>':''}
+    <p style="text-align:center;font-size:11px;color:var(--accent2);margin:8px 0 2px">Talents (start at 1)</p>
     <div class="talents">${tl}</div>
     <p style="text-align:center;font-size:11px;color:var(--accent2);margin:8px 0 2px">Class</p>
     <div style="text-align:center;font-size:12.5px">${cls}</div>
@@ -911,21 +1090,24 @@ function openStats(){
 }
 
 /* ===== SESSION ===== */
-function startSession(type){
-  const p=prog[active];sessionType=type||'train';
-  sActive=true;secs=sessionMins*60;total=secs;gained=0;focusedSecs=0;phoneUsed=0;phoneUp=false;
+function startSession(cat){
+  if(!active){toast('Pick a creature first.');return;}
+  const p=prog[active];sessionCat=cat||'purpose';const c=catBy(sessionCat);sessionType=(c.kind==='train')?'train':'mind';
+  budget=allowanceSecs();
+  sActive=true;secs=sessionMins*60;total=secs;gained=0;focusedSecs=0;phoneUsed=0;phoneUp=false;sessNeedGain=0;sessHpGain=0;
   setPhone(false,true);
   document.getElementById('focusLvlUp').style.display='none';
   go('focus');renderSession();
-  document.getElementById('focusHint').textContent=(budget===0?'Strict: any phone time drains health. ':`Up to ${fmt(budget)} phone time before health drains. `)+'Timer pauses while on the phone.';
-  log(`${sessionType==='mind'?'🧘 Mindfulness':'🎓 Training'} session started · ${sessionMins} min · allowance ${fmt(budget)}.`);
+  document.getElementById('focusHint').textContent=(budget===0?'Hard mode: any phone time drains health. ':`Up to ${fmt(budget)} phone time before health drains. `)+'Timer pauses while on the phone.';
+  log(`${c.icon} ${c.name} session started · ${sessionMins} min · allowance ${fmt(budget)}.`);
   clearInterval(sTimer);sTimer=setInterval(tick,1000); // real time: 1s = 1s
 }
+function sessLabel(){const c=catBy(sessionCat)||{icon:'🎓',name:'Focus'};return c.icon+' '+c.name;}
 function setPhone(up,silent){
   phoneUp=up;
   document.getElementById('phUpBtn').style.display=up?'none':'block';
   document.getElementById('phDownBtn').style.display=up?'block':'none';
-  document.getElementById('focusStatus').textContent=up?'📱 Phone in hand · timer paused':(sessionType==='mind'?'🧘 Mindfulness · resting':'🎓 Training · focusing');
+  document.getElementById('focusStatus').textContent=up?'📱 Phone in hand · timer paused':(sessLabel()+' · in progress');
   if(!silent&&sActive)log(up?'📱 Picked up phone — timer paused.':'⬇ Put phone down / reopened — timer resumed.');
   setFocusAnim();
 }
@@ -933,7 +1115,7 @@ function setFocusAnim(){
   const art=document.getElementById('focusArt'),em=document.getElementById('focusEmote');
   art.classList.remove('anim-attack','anim-rest');
   if(!sActive||phoneUp){em.textContent='';return;}
-  if(sessionType==='mind'){art.classList.add('anim-rest');em.textContent='💤';}
+  if((catBy(sessionCat)||{}).kind==='heal'){art.classList.add('anim-rest');em.textContent='💤';}
   else{art.classList.add('anim-attack');em.textContent='⚔️';}
 }
 /* Locking the phone OR leaving the app both count as phone-allowance time. */
@@ -971,15 +1153,16 @@ function tick(){
   }
   document.getElementById('focusArt').classList.remove('shake');
   secs--;focusedSecs++;
-  if(sessionType==='mind')p.restSec++;else p.trainSec++; // lifetime stats for this pet
-  if(sessionType==='mind'){
-    p.health=Math.min(100,p.health+0.05); // heal 3%/min (10%->100% in ~30 min), no XP
+  const cat=catBy(sessionCat)||{kind:'train',name:'Focus'};
+  if(cat.kind==='heal')p.restSec++;else p.trainSec++; // lifetime stats for this pet
+  if(cat.kind==='heal'&&p.health<100){
+    p.health=Math.min(100,p.health+0.05);sessHpGain+=0.05; // heal first (~3%/min)
     const eat=(Math.floor(focusedSecs/15)%2)===1;
     document.getElementById('focusEmote').textContent=eat?'🍎':'💤';
-    document.getElementById('focusMsg').textContent=eat?'Eating… 🍎':'Resting & healing… 💤';
+    document.getElementById('focusMsg').textContent=`${cat.name}… ${eat?'recharging 🍎':'recovering 💤'}`;
   } else {
-    const g=addXp(active,1);gained++; // 1 XP per second, no passive healing in Training
-    document.getElementById('focusMsg').textContent='Training… growing 🌱';
+    const g=addXp(active,1);gained++; // train, OR healed-up pet now earns XP
+    document.getElementById('focusMsg').textContent=(cat.kind==='heal')?`${cat.name}… fully rested, now growing 🌱`:`${cat.name}… growing 🌱`;
     if(g>0){document.getElementById('focusLvlUp').style.display='block';log(`⭐ ${nameOf(active)} reached Lv ${p.level}! (spend points after session)`);}
   }
   if(focusedSecs%TOKEN_SECS===0){tokens++;log('🎟 Earned a movement token (5 min productive).');}
@@ -1007,15 +1190,16 @@ function renderSession(){
 function renderLock(){
   if(!active)return;const p=prog[active];
   document.getElementById('lockArt').innerHTML=art(active,petStage(p),p.health,p.cls);
-  document.getElementById('lockTitle').textContent=(sessionType==='mind'?'🧘 Mindfulness':'🎓 Training');
+  document.getElementById('lockTitle').textContent=sessLabel();
   document.getElementById('lockState').textContent=`${nameOf(active)} · Lv ${p.level} · ❤ ${Math.round(p.health)}%`;
   const m=Math.floor(secs/60),s=secs%60;const lt=document.getElementById('lockTime'),lc=EL_COLOR[ELEMENT[active]]||'#5fd3a8';lt.textContent=`${m}:${String(s).padStart(2,'0')}`;lt.style.color=lc;lt.style.fontSize='30px';lt.style.textShadow=`0 0 16px ${lc}66`;
   document.getElementById('lockBar').style.width=Math.min(100,(1-secs/total)*100)+'%';document.getElementById('lockBar').style.background=lc;
 }
 function finishSession(complete){
   clearInterval(sTimer);sTimer=null;sActive=false;setFocusAnim();
-  const p=prog[active];
-  log(complete&&p.health>0?`✅ Session complete! +${gained} XP.`:`Session ended. Kept +${gained} XP.`);
+  const p=prog[active],c=catBy(sessionCat)||{name:'Focus'};
+  if(focusedSecs>0){sessionLog.push({ts:Date.now(),cat:sessionCat,dur:focusedSecs,points:sessNeedGain,xp:gained,hp:Math.round(sessHpGain)});saveNeeds();}
+  log(complete&&p.health>0?`✅ ${c.name} complete! +${gained} XP · +${Math.round(sessNeedGain)} ${c.name}.`:`${c.name} ended. Kept +${gained} XP.`);
   go('home');updateAll();
 }
 function onDeath(cause){
@@ -1213,6 +1397,7 @@ function fightPanel(k){
     h+=`<div class="movebtn${cls}" ${cdLeft>0?'':'onclick="useMove('+idx+')"'} style="${cdLeft>0?'opacity:.45;cursor:not-allowed':''}"><div class="mi">${EL_EMOJI[m.el]||'⚔️'}</div><div class="mn">${m.name}</div><div class="mp">${sub}</div></div>`;
   });
   h+=`</div>`;
+  if(allNeedsGreen())h+=`<div style="text-align:center;font-size:10px;color:var(--accent);font-weight:700;margin-top:2px">🌟 All needs full — attacks doubled!</div>`;
   h+=`<button class="btn danger" onclick="campFlee('${k}')">🏃 Run away${f.fleeSafe?' (safe)':' (−25% HP)'}</button>`;
   if(run.msg)h+=`<div class="cmsg">${run.msg}</div>`;
   return h;
@@ -1262,7 +1447,8 @@ function useMove(mi){
   let eff=mv.power||0;
   if(hasFx(mv,'chain')){f.chain=(f.lastMove===mv.name)?(f.chain+1):0;eff+=f.chain;}
   let mu=matchup1(mv.el,e.element);if(hasFx(mv,'ignoreResist')&&mu<1)mu=1;
-  const mult=(f.nextMult||1)*(f.petMult||1);f.nextMult=1;
+  const wellFed=allNeedsGreen()?2:1; // all 5 needs > 75% → double attack
+  const mult=(f.nextMult||1)*(f.petMult||1)*wellFed;f.nextMult=1;
   let dmg=eff>0?Math.max(1,Math.round(eff*(p.tal[mv.trait]||1)*mu*mult*(0.9+Math.random()*0.2))):0;
   if(dmg)e.hp-=dmg;
   let msg=`Used ${mv.name}.`+(eff>0?` ${mu>1?'Super effective! ':mu<1?'Not very effective. ':''}-${dmg} HP.`:'');
@@ -1444,10 +1630,13 @@ function devHurt(){if(!active)return;const p=prog[active];p.health=Math.max(0,p.
 function devTestMode(){testMode=!testMode;const b=document.getElementById('tmBtn');if(b)b.textContent=testMode?'🧪 Test mode: ON (lock ignored)':'🧪 Test mode: OFF (lock counts)';if(!testMode&&sActive&&document.hidden){hiddenAt=Date.now();}toast(testMode?'Test mode ON — locking won’t count as phone time.':'Test mode OFF — locking now counts (real behaviour).');log(testMode?'🧪 Test mode ON.':'🧪 Test mode OFF.');}
 
 /* ===== INIT ===== */
-renderPicker();renderDurBox();renderBudgetBox();renderJump();renderClsSel();renderGallery();
-attachSwipe('durStep',cycleDur);attachSwipe('budStep',cycleBudget);
-loadMoves();loadCampaigns();loadHistory();renderArtRows();edInit();mvEdInit();renderPickPrev();
+renderPicker();renderJump();renderClsSel();renderGallery();
+loadMoves();loadCampaigns();loadHistory();loadNeeds();renderArtRows();edInit();mvEdInit();renderPickPrev();
+renderDial();renderDiff();renderCatRow();initDial();
+setInterval(globalTick,1000); // always-on needs decay + live feed
 document.addEventListener('visibilitychange',onVisibility);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)saveNeeds();}); // persist so needs keep depleting across closes
+window.addEventListener('beforeunload',saveNeeds);
 // Self-heal: remove any previously-registered service worker + caches (they were causing stale/blank loads).
 if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{});}
 if(window.caches){caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});}

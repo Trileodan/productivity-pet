@@ -1151,14 +1151,27 @@ function reconcileSession(){
   const sess=pendingSess; pendingSess=null;
   if(!sess||!sess.cat||!active||!prog[active]||!prog[active].alive)return;
   const p=prog[active],c=catBy(sess.cat); if(!c)return;
-  if(sess.cat!=='sleep')return; // only Sleep keeps counting while the app is closed; focus sessions don't resume across a full close
-  const away=(Date.now()-sess.ts)/1000; const covered=Math.max(0,Math.min(away,16*3600)); // count up, cap 16h
-  creditSession(p,c,covered);
-  p.needs.sleep=Math.min(100,(p.needs.sleep||0)+c.gain/3600*covered);
-  ['purpose','move','play','connect'].forEach(k=>{const cc=catBy(k);p.needs[k]=Math.max(0,(p.needs[k]||0)-cc.dep/3600*covered);});
-  needsTs=Date.now(); // sleep covered the whole away period
-  sessResume={cat:'sleep',secs:Math.round((sess.secs||0)+covered),total:0,snap:sess.snap||{xp:p.xp,level:p.level,pending:p.pending},gained:sess.gained||0,need:sess.need||0,hp:sess.hp||0};
-  sleepResumeMsg=`🌙 ${nameOf(active)} slept ~${fmtTime(covered)} while you were away.`;
+  const away=(Date.now()-sess.ts)/1000;
+  if(sess.cat==='sleep'){ // counts UP, never auto-ends
+    const covered=Math.max(0,Math.min(away,16*3600));
+    creditSession(p,c,covered);
+    p.needs.sleep=Math.min(100,(p.needs.sleep||0)+c.gain/3600*covered);
+    ['purpose','move','play','connect'].forEach(k=>{const cc=catBy(k);p.needs[k]=Math.max(0,(p.needs[k]||0)-cc.dep/3600*covered);});
+    needsTs=Date.now();
+    sessResume={cat:'sleep',secs:Math.round((sess.secs||0)+covered),total:0,snap:sess.snap||{xp:p.xp,level:p.level,pending:p.pending},gained:sess.gained||0,need:sess.need||0,hp:sess.hp||0};
+    sleepResumeMsg=`🌙 ${nameOf(active)} slept ~${fmtTime(covered)} while you were away.`;
+    return;
+  }
+  // focus / heal session — keep COUNTING DOWN across a full close
+  const covered=Math.max(0,Math.min(away,sess.secs));
+  if(c.kind==='heal'){const room=100-p.health,healSec=Math.min(covered,room/0.05);p.health=Math.min(100,p.health+0.05*healSec);const xs=covered-healSec;if(xs>0)addXp(active,Math.round(xs));}
+  else addXp(active,Math.round(covered));
+  p.needs[sess.cat]=Math.min(100,(p.needs[sess.cat]||0)+c.gain/3600*covered);
+  NEED_KEYS.filter(k=>k!==sess.cat).forEach(k=>{const cc=catBy(k);p.needs[k]=Math.max(0,(p.needs[k]||0)-cc.dep/3600*covered);});
+  needsTs=Date.now();
+  const left=sess.secs-covered;
+  if(left>1){ sessResume={cat:sess.cat,secs:Math.round(left),total:sess.total||sess.secs,snap:sess.snap,gained:Math.round((sess.gained||0)+(c.kind!=='heal'?covered:0)),need:sess.need||0,hp:sess.hp||0}; }
+  else { sessionLog.push({ts:Date.now(),cat:sess.cat,dur:sess.total||sess.secs,points:Math.round(c.gain/3600*(sess.total||sess.secs)),xp:Math.round(covered),hp:0}); sleepResumeMsg=`✅ ${nameOf(active)} finished its ${c.name} session while you were away! +${Math.round(covered)} XP`; }
 }
 /* ---- session log ---- */
 function openLog(){
@@ -1264,8 +1277,8 @@ function startSession(cat){
   document.getElementById('phoneBars').style.display=sleepy?'none':'';
   document.getElementById('endBtn').style.display=sleepy?'none':'';
   document.getElementById('wakeBtn').style.display=sleepy?'block':'none';
-  document.getElementById('lockBtn').textContent=sleepy?'🔒 Lock phone & sleep':'🔒 Lock phone (show widget)';
-  document.getElementById('focusHint').textContent=sleepy?'😴 Counts up while you rest — even if you lock your phone or close the app. Tap Wake up when you’re done to bank the progress.':((budget===0?'Hard mode: any phone time drains health. ':`Up to ${fmt(budget)} phone time before health drains. `)+'Timer pauses while on the phone.');
+  document.getElementById('lockBtn').textContent=sleepy?'🔒 Lock phone & sleep':'🔒 Lock phone (timer keeps running)';
+  document.getElementById('focusHint').textContent=sleepy?'😴 Counts up while you rest — even if you lock your phone or close the app. Tap Wake up when you’re done to bank the progress.':'⏳ The timer keeps counting down even while your phone is locked. Use “Open another app” only if you actually need your phone — that uses your allowance.';
   log(`${c.icon} ${c.name} session started${sleepy?'':` · ${sessionMins>=120?(sessionMins/60)+'h':sessionMins+' min'} · allowance ${fmt(budget)}`}.`);
   saveNeeds();
   clearInterval(sTimer);sTimer=setInterval(tick,1000); // real time: 1s = 1s
@@ -1291,13 +1304,10 @@ function setFocusAnim(){
 let hiddenAt=0;
 function onVisibility(){
   if(!sActive)return;
-  if(document.hidden){hiddenAt=Date.now();saveNeeds();if(sessionCat!=='sleep'&&!testMode&&!phoneUp)setPhone(true);return;}
-  // returning to the app:
+  if(document.hidden){hiddenAt=Date.now();saveNeeds();return;} // phone locked / app hidden: nothing runs (battery-safe) — we credit the elapsed time on return
   const away=hiddenAt?(Date.now()-hiddenAt)/1000:0;hiddenAt=0;
-  if(sessionCat==='sleep'){ if(away>0)creditAwaySleep(away); return; } // sleep keeps counting while away
-  if(testMode)return; // test mode: lock/app-switch ignored for focus sessions
-  if(away>0)reconcilePhone(Math.round(away));
-  setPhone(false);
+  if(away<=0)return;
+  if(sessionCat==='sleep')creditAwaySleep(away); else creditAwayFocus(away);
 }
 function creditAwaySleep(away){
   const p=prog[active],c=catBy('sleep');const covered=Math.max(0,Math.min(away,16*3600)); // count UP; cap 16h
@@ -1305,6 +1315,18 @@ function creditAwaySleep(away){
   p.needs.sleep=Math.min(100,(p.needs.sleep||0)+c.gain/3600*covered);
   ['purpose','move','play','connect'].forEach(k=>{const cc=catBy(k);p.needs[k]=Math.max(0,(p.needs[k]||0)-cc.dep/3600*covered);});
   secs+=covered; renderSession(); // Sleep counts up — never auto-ends; player taps Wake up
+}
+function creditAwayFocus(away){ // timer keeps COUNTING DOWN while the phone is locked / app hidden
+  const p=prog[active],c=catBy(sessionCat)||{kind:'train',name:'Focus'};
+  const covered=Math.max(0,Math.min(away,secs));
+  if(c.kind==='heal'){const room=100-p.health,healSec=Math.min(covered,room/0.05);p.health=Math.min(100,p.health+0.05*healSec);sessHpGain+=0.05*healSec;const xs=covered-healSec;if(xs>0){addXp(active,Math.round(xs));gained+=Math.round(xs);}}
+  else{addXp(active,Math.round(covered));gained+=Math.round(covered);}
+  if(c.kind==='heal')p.restSec+=covered;else p.trainSec+=covered;
+  focusedSecs+=covered;
+  p.needs[sessionCat]=Math.min(100,(p.needs[sessionCat]||0)+c.gain/3600*covered);
+  NEED_KEYS.filter(k=>k!==sessionCat).forEach(k=>{const cc=catBy(k);p.needs[k]=Math.max(0,(p.needs[k]||0)-cc.dep/3600*covered);});
+  secs-=covered;
+  if(secs<=0){finishSession(true);} else {renderSession();}
 }
 /* Failing a session: wipe XP earned this session and crash health to 10% (no heart lost — hearts are only for adventures). */
 function sessionPenalty(reason){
@@ -1841,17 +1863,22 @@ renderPicker();renderJump();renderClsSel();renderGallery();renderArtRows();edIni
 renderDial();renderDiff();renderCatRow();initDial();
 // resume the saved active pet straight to the home screen (a refresh no longer wipes progress)
 if(active&&prog[active]&&prog[active].hatched&&prog[active].alive){run=prog[active].run||null;syncClsSel();go('home');updateAll();renderGallery();}
-// resume / report a Sleep session that was running while the app was closed
+// resume a session that was still running while the app was closed/locked
 if(sessResume&&active&&prog[active]&&prog[active].alive){
-  sessionCat=sessResume.cat;selCat=sessionCat;sessSnap=sessResume.snap;gained=sessResume.gained||0;sessNeedGain=sessResume.need||0;sessHpGain=sessResume.hp||0;
-  secs=sessResume.secs;total=0;sActive=true;sessionType='mind';
-  setBgHue(catBy(sessionCat).col);go('focus');renderSession();
-  document.getElementById('phoneBars').style.display='none';document.getElementById('endBtn').style.display='none';document.getElementById('wakeBtn').style.display='block';document.getElementById('lockBtn').textContent='🔒 Lock phone & sleep';
-  document.getElementById('focusHint').textContent='😴 Still sleeping — tap Wake up when you’re done to bank the progress.';
+  sessionCat=sessResume.cat;selCat=sessionCat;const rc=catBy(sessionCat)||{kind:'mind',col:'#5b4fae'};
+  sessSnap=sessResume.snap;gained=sessResume.gained||0;sessNeedGain=sessResume.need||0;sessHpGain=sessResume.hp||0;
+  secs=sessResume.secs;total=sessResume.total||(sessionCat==='sleep'?0:secs);sActive=true;sessionType=(rc.kind==='train')?'train':'mind';
+  budget=allowanceSecs();setBgHue(rc.col);go('focus');renderSession();
+  const sleepy=sessionCat==='sleep';
+  document.getElementById('phoneBars').style.display=sleepy?'none':'';
+  document.getElementById('endBtn').style.display=sleepy?'none':'';
+  document.getElementById('wakeBtn').style.display=sleepy?'block':'none';
+  document.getElementById('lockBtn').textContent=sleepy?'🔒 Lock phone & sleep':'🔒 Lock phone (timer keeps running)';
+  document.getElementById('focusHint').textContent=sleepy?'😴 Still sleeping — tap Wake up when you’re done to bank the progress.':'⏳ Resumed — the timer keeps counting even while your phone is locked.';
   clearInterval(sTimer);sTimer=setInterval(tick,1000);
   if(sleepResumeMsg){toast(sleepResumeMsg);log(sleepResumeMsg);}
   saveNeeds();
-}
+} else if(sleepResumeMsg){ updateAll();toast(sleepResumeMsg);log(sleepResumeMsg);saveNeeds(); } // session finished while away
 setInterval(globalTick,1000); // always-on needs decay + live feed
 document.addEventListener('visibilitychange',onVisibility);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)saveNeeds();}); // persist so needs keep depleting across closes
